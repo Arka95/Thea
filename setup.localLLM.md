@@ -43,7 +43,9 @@ Open code is really great to separately have a one-stop solution to an agentic U
  ```
 - Launch OpenCode via OLLAMA:
 `ollama launch opencode --config`
-- if you want agent mode in Intellij, you have to add a config to %USERPROFILE%\.jetbrains\acp.json
+- Install the OpenCode ACP / AI Asisstant plugin
+  ![Description](images/ollama-opencode-intellij-agentmode.png)
+- if you want agent mode explicitly(without OpenCode) in Intellij, you have to add a config to %USERPROFILE%\.jetbrains\acp.json
 
 ```
 {
