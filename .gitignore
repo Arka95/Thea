@@ -1,0 +1,36 @@
+# Ignore all files in the .idea directory
+.idea/
+
+# Ignore all files in the .venv directory
+.venv/
+
+# Ignore all files in the .junie directory
+.junie/
+
+# Ignore all log files
+*.log
+
+# Ignore all backup files
+*~
+
+# Ignore temporary files
+*.tmp
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environment directories created by venv
+venv/
+
+# Ignore requirements.txt file (optional, if you want to keep it tracked)
+# requirements.txt
+
+# Ignore video and sample files
+*.mp4
+sample.MP4
+
+# Ignore console output and scratch files
+Console Selection/
+Scratches and Consoles/
