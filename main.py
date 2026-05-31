@@ -99,7 +99,7 @@ def cmd_downscale(args, config):
         output_dir = args.output or os.path.join(data_dir, DOWNSAMPLED_DIR)
         os.makedirs(output_dir, exist_ok=True)
         ext = ".avi" if lossless else ".mp4"
-        out_path = os.path.join(output_dir, f"{base}_downscaled{ext}")
+        out_path = os.path.join(output_dir, f"{base}{ext}")
         result = downscale_video(args.path, out_path, max_width, codec, lossless=lossless)
         logger.info(f"Downscaled: {result['original_resolution']} -> {result['output_resolution']}")
         logger.info(f"Output: {result['output']} ({result['size_reduction']*100:.0f}% smaller, lossless={lossless})")
@@ -122,15 +122,22 @@ def cmd_analyze(args, config):
 def _write_video_metadata(video_path: str, result: dict, windows: list, data_dir: str):
     """Write per-video metadata JSON to the data directory.
 
-    Contains only video information and optical flow analysis results.
+    Uses the original video path for identification, with fps/frames/duration
+    from the analyzed video (these are preserved across downscaling).
     """
     overall = MotionAssessment.from_score(
         result["motion_stats"]["mean"],
         result["processing"].get("analysis_width", 320),
     )
 
+    vi = result["video_info"]
     metadata = {
-        "video": result["video_info"],
+        "video": {
+            "filename": os.path.basename(video_path),
+            "fps": vi["fps"],
+            "total_frames": vi["total_frames"],
+            "duration_sec": vi.get("duration_sec", round(vi["total_frames"] / vi["fps"], 2) if vi["fps"] > 0 else 0),
+        },
         "motion_stats": result["motion_stats"],
         "overall_assessment": overall.value,
         "windows_detected": windows,

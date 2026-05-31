@@ -31,7 +31,7 @@ logger = logging.getLogger("thea")
 # Constants — directory structure (never changes)
 # ---------------------------------------------------------------------------
 
-DOWNSAMPLED_DIR = "downsampled"
+DOWNSAMPLED_DIR = "downscaled"
 SLICED_DIR = "sliced"
 VIDEO_META_CSV = "video_meta.csv"
 PIPELINE_STATS_CSV = "pipeline_stats.csv"
@@ -60,6 +60,16 @@ def is_data_collection_enabled() -> bool:
     """
     settings = _load_raw_settings()
     return settings.get("data_collection", False) is True
+
+
+def is_reencode_enabled() -> bool:
+    """Check if slicing should re-encode using OpenCV.
+
+    Returns False (default) for lossless FFmpeg stream copy.
+    Returns True to re-encode with config output.codec via OpenCV.
+    """
+    settings = _load_raw_settings()
+    return settings.get("reencode", False) is True
 
 
 def resolve_data_dir(source_path: str) -> str:

@@ -1,4 +1,5 @@
 {
   "data_dir": "D:/Thea",
-  "data_collection": false
+  "data_collection": true,
+  "reencode": false
 }

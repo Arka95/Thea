@@ -4,4 +4,4 @@
 opencv-contrib-python==4.13.0.90
 numpy
 scipy
-ffmpeg-python
+imageio-ffmpeg
