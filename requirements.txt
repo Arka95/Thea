@@ -1,4 +1,7 @@
-opencv-python
+# OpenCV with CUDA support (prebuilt wheel from https://github.com/cudawarped/opencv-python-cuda-wheels)
+# Install via: pip install opencv_contrib_python-4.13.0.90-cp37-abi3-win_amd64.whl
+# Requires CUDA Toolkit 13.x and cuDNN 9.x installed. See setup.md for details.
+opencv-contrib-python==4.13.0.90
 numpy
 scipy
 ffmpeg-python

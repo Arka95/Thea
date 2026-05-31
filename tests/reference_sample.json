@@ -1,0 +1,68 @@
+{
+  "video_info": {
+    "path": "C:\\Projects\\Thea\\sample.MP4",
+    "filename": "sample.MP4",
+    "width": 3840,
+    "height": 2160,
+    "fps": 29.97002997002997,
+    "total_frames": 574,
+    "codec": "h264",
+    "duration_sec": 19.15
+  },
+  "motion_stats": {
+    "mean": 0.3742,
+    "median": 0.3034,
+    "max": 1.2758,
+    "min": 0.0124,
+    "std": 0.3298,
+    "p25": 0.1019,
+    "p75": 0.5261,
+    "p95": 1.1663
+  },
+  "processing": {
+    "algorithm": "farneback",
+    "backend": "cuda",
+    "analysis_resolution": [
+      320,
+      180
+    ],
+    "frames_analyzed": 573
+  },
+  "windows": [
+    {
+      "start_sec": 0.0,
+      "end_sec": 6.206,
+      "duration_sec": 6.206,
+      "avg_motion": 0.1711,
+      "max_motion": 0.4943,
+      "frame_range": [
+        0,
+        186
+      ]
+    },
+    {
+      "start_sec": 8.575,
+      "end_sec": 12.079,
+      "duration_sec": 3.504,
+      "avg_motion": 0.2778,
+      "max_motion": 0.497,
+      "frame_range": [
+        257,
+        362
+      ]
+    },
+    {
+      "start_sec": 14.748,
+      "end_sec": 19.119,
+      "duration_sec": 4.371,
+      "avg_motion": 0.2298,
+      "max_motion": 0.4756,
+      "frame_range": [
+        442,
+        573
+      ]
+    }
+  ],
+  "window_count": 3,
+  "total_extractable_sec": 14.08
+}
