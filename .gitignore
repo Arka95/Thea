@@ -31,6 +31,13 @@ venv/
 *.mp4
 sample.MP4
 
+# But track the test sample video
+!tests/sample.mp4
+
+# Ignore pipeline data directories
+data/
+**/Thea/
+
 # Ignore console output and scratch files
 Console Selection/
 Scratches and Consoles/

@@ -1,0 +1,47 @@
+# Supported Video Codecs
+# Listed as FourCC codes recognized by OpenCV VideoWriter/VideoCapture.
+# One codec per line. Lines starting with # are comments.
+#
+# Format: FOURCC_CODE | Description
+#
+# Common containers: .mp4, .avi, .mov, .mkv, .webm
+
+# H.264 / AVC (most widely used, good quality/size ratio)
+avc1 | H.264 via system encoder (macOS/iOS)
+H264 | H.264 (platform-dependent)
+X264 | H.264 via x264 (if available)
+
+# H.265 / HEVC (better compression than H.264, slower encode)
+HEVC | H.265 via system encoder
+X265 | H.265 via x265 (if available)
+hev1 | H.265 variant
+
+# MPEG-4 Part 2 (broad compatibility, slightly lower quality than H.264)
+mp4v | MPEG-4 Part 2 (default, very broad support)
+DIVX | DivX MPEG-4
+XVID | Xvid MPEG-4 (open-source)
+FMP4 | FFmpeg MPEG-4
+MP4V | MPEG-4 variant
+
+# Motion JPEG (each frame is a JPEG, large files, easy seeking)
+MJPG | Motion JPEG
+
+# VP8/VP9 (WebM, royalty-free)
+VP80 | VP8 (WebM)
+VP90 | VP9 (WebM, better compression)
+
+# AV1 (modern royalty-free, excellent compression, slow encode)
+AV01 | AV1 (if encoder available)
+
+# Lossless / Production codecs
+HFYU | Huffman lossless YUV
+FFV1 | FFV1 lossless (archival)
+LAGS | Lagarith lossless
+
+# Uncompressed (very large files, maximum quality)
+RAWV | Raw video (uncompressed)
+I420 | YUV 4:2:0 planar (uncompressed)
+
+# Platform-specific
+WMVC | Windows Media Video
+WMV3 | Windows Media Video 9

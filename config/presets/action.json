@@ -1,0 +1,31 @@
+{
+  "analysis": {
+    "max_width": 480,
+    "motion_smoothing_sigma": 2
+  },
+  "optical_flow": {
+    "algorithm": "farneback",
+    "farneback": {
+      "pyr_scale": 0.5,
+      "levels": 3,
+      "winsize": 11,
+      "iterations": 3,
+      "poly_n": 5,
+      "poly_sigma": 1.2,
+      "flags": 0
+    }
+  },
+  "window_detection": {
+    "min_duration_sec": 2.0,
+    "motion_threshold": 2.0,
+    "merge_gap_sec": 0.3
+  },
+  "output": {
+    "codec": "mp4v",
+    "write_metadata": true
+  },
+  "gpu": {
+    "enabled": true,
+    "device_id": 0
+  }
+}
