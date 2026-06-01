@@ -9,7 +9,7 @@ Thea identifies stable cinematic segments in video files using GPU-accelerated o
 ## Quick Start
 
 ```bash
-# Install dependencies (requires CUDA-enabled OpenCV — see setup.md)
+# Install dependencies (requires CUDA-enabled OpenCV — see docs/setup.md)
 pip install -r requirements.txt
 
 # Process a single video (full pipeline: downscale + analyze + slice)
@@ -352,6 +352,6 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 
 | File | Description |
 |------|-------------|
-| [setup.md](setup.md) | Install CUDA toolkit, cuDNN, and OpenCV with GPU acceleration |
-| [setup.localLLM.md](setup.localLLM.md) | Configure IntelliJ with a local LLM (Ollama/Qwen) for AI-assisted development |
-| [productionize.todo.md](productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |
+| [setup.md](docs/setup.md) | Install CUDA toolkit, cuDNN, and OpenCV with GPU acceleration |
+| [setup.localLLM.md](docs/setup.localLLM.md) | Configure IntelliJ with a local LLM (Ollama/Qwen) for AI-assisted development |
+| [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |
