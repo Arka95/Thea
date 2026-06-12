@@ -1,0 +1,24 @@
+{
+  "mcp.servers": {
+    "filesystem": {
+      "type": "node",
+      "command": "node",
+      "args": ["-e", "require('@modelcontextprotocol/server-filesystem')"]
+    },
+    "memory": {
+      "type": "node",
+      "command": "node",
+      "args": ["-e", "require('@modelcontextprotocol/server-memory')"]
+    },
+    "seq-thinking": {
+      "type": "node",
+      "command": "node",
+      "args": ["-e", "require('@gotza02/seq-thinking')"]
+    },
+    "git": {
+      "type": "python",
+      "command": "python",
+      "args": ["-m", "mcp-server-git"]
+    }
+  }
+}
