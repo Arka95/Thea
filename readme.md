@@ -354,4 +354,5 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 |------|-------------|
 | [setup.md](docs/setup.md) | Install CUDA toolkit, cuDNN, and OpenCV with GPU acceleration |
 | [setup.localLLM.md](docs/setup.localLLM.md) | Configure IntelliJ with a local LLM (Ollama/Qwen) for AI-assisted development |
+| [setup.mcp-skills.md](docs/setup.mcp-skills.md) | Full MCP setup: VS Code + Cline + Ollama + web search, git, knowledge graph, filesystem tools |
 | [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |
