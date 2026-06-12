@@ -210,6 +210,9 @@ npm install -g @brave/brave-search-mcp-server
 # Sequential Thinking: structured multi-step reasoning
 npm install -g @gotza02/seq-thinking
 
+# Playwright: FREE web browsing (no API key, unlimited)
+npm install -g @playwright/mcp
+
 # --- Python MCP Servers (via pip) ---
 
 # Git: full git repo operations
@@ -293,6 +296,11 @@ Edit the file above and replace its contents with the following JSON. **Replace 
       "args": [
         "C:\\Users\\<USERNAME>\\AppData\\Roaming\\npm\\node_modules\\@gotza02\\seq-thinking\\dist\\index.js"
       ],
+      "disabled": false
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
       "disabled": false
     }
   }
@@ -489,6 +497,89 @@ Relation("Slicer" → "depends_on" → "MotionAssessment")
 | `sequential_thinking` | Break problems into structured reasoning steps |
 
 Useful for: architecture decisions, debugging complex issues, planning multi-step changes.
+
+---
+
+### 6. 🌐 Playwright Browser Server (FREE — No API Key)
+
+| Property | Value |
+|----------|-------|
+| **Package** | `@playwright/mcp` |
+| **npm** | https://www.npmjs.com/package/@playwright/mcp |
+| **Source** | https://github.com/microsoft/playwright-mcp |
+| **Language** | TypeScript/Node.js |
+| **Version installed** | 0.0.76 |
+| **API key** | ❌ None needed — completely free and unlimited |
+| **License** | Apache 2.0 |
+
+**Tools provided:**
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Navigate to any URL |
+| `browser_click` | Click elements on page |
+| `browser_type` | Type into input fields |
+| `browser_snapshot` | Get page accessibility tree (fast text content) |
+| `browser_screenshot` | Take page screenshots |
+| `browser_evaluate` | Run JavaScript on the page |
+| `browser_go_back` / `browser_go_forward` | Navigation history |
+| `browser_wait` | Wait for page load/element |
+| `browser_tab_*` | Manage multiple tabs |
+
+**Why Playwright over Brave Search:**
+- **Free** — no API key, no monthly limits, no charges
+- **Full browsing** — not just search results, but actual page content
+- **Interactive** — can fill forms, click buttons, navigate SPAs
+- **Local** — all browsing happens on your machine via a real browser
+
+> **Note:** Brave Search MCP is still available in config (disabled) if you want faster structured search results in the future. Playwright gives you full browser access for free.
+
+---
+
+## Subagents (Multi-Agent / Parallel Execution)
+
+### Cline Built-in Subagents (Free, works with Ollama)
+
+Cline natively supports **subagents** — parallel mini-agents that your main agent spawns for focused tasks. This is built-in and requires **no extra MCP server**.
+
+### Enable Subagents:
+1. Open Cline sidebar in VS Code → click ⚙️ **Settings**
+2. Go to **Features → Agent**
+3. Ensure **`use_subagents`** is toggled **ON** (it's on by default)
+
+### What subagents can do:
+| Capability | Available |
+|------------|-----------|
+| Read files | ✅ |
+| Search code | ✅ |
+| List directories | ✅ |
+| Run read-only shell commands | ✅ |
+| Apply custom skills | ✅ |
+| Edit files | ❌ (main agent only) |
+| Web access | ❌ (main agent only) |
+| Spawn further subagents | ❌ |
+
+### How to use:
+```
+"Use subagents to explore the motion_assessment, slicer, and downscaler modules in parallel"
+
+"Map out the architecture of this codebase using subagents"
+
+"Use subagents to find all usages of HardwareProfile across the repo"
+```
+
+### When Cline auto-spawns subagents:
+- Researching multiple unrelated modules
+- Comparing different approaches
+- Gathering broad context across a large codebase
+- Analyzing separate features simultaneously
+
+### Auto-approve subagents:
+If "Read project files" is enabled in Cline's Auto Approve settings, subagent launches are automatically approved (no manual clicks needed).
+
+### Tips for effective subagent use:
+- **Be specific** — "Explore tests AND check config loader" → spawns 2 focused subagents
+- **State the goal** — "Use subagents to find all error handling patterns" is better than just "use subagents"
+- **Large codebases benefit most** — subagents shine when there's lots to explore in parallel
 
 ---
 
@@ -762,6 +853,7 @@ Set-Content "$env:APPDATA\Code\User\globalStorage\saoudrizwan.claude-dev\setting
 | `@modelcontextprotocol/server-memory` | npm MCP | 2026.1.26 | `%APPDATA%\npm\node_modules\` |
 | `@brave/brave-search-mcp-server` | npm MCP | 2.0.83 | `%APPDATA%\npm\node_modules\` |
 | `@gotza02/seq-thinking` | npm MCP | 1.3.5 | `%APPDATA%\npm\node_modules\` |
+| `@playwright/mcp` | npm MCP | 0.0.76 | `%APPDATA%\npm\node_modules\` |
 | `mcp-server-git` | pip MCP | 2026.6.4 | Python312 Scripts |
 
 ---
