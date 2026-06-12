@@ -213,6 +213,12 @@ npm install -g @gotza02/seq-thinking
 # Playwright: FREE web browsing (no API key, unlimited)
 npm install -g @playwright/mcp
 
+# Fetch: lightweight URL fetching (HTML, markdown, JSON, YouTube transcripts)
+npm install -g mcp-fetch-server
+
+# SQLite: database queries, schema inspection, data export
+npm install -g mcp-sqlite-server
+
 # --- Python MCP Servers (via pip) ---
 
 # Git: full git repo operations
@@ -608,16 +614,57 @@ You are an expert software engineer and system administrator. Follow these rules
 - Performance: profiling, bottleneck identification, hardware-aware optimization
 
 ## Tool Usage Behavior
-- Use brave_web_search when: user asks about current events, latest versions, "what is the latest...", news, real-time data, or anything that may have changed since training
+- Use playwright/fetch tools when: user asks about current events, latest versions, needs real-time data, or anything that may have changed since training. Playwright for interactive browsing, fetch for quick URL reads.
 - Use git tools to: commit with meaningful messages, check status before operations, create feature branches
 - Use memory tools to: build and maintain knowledge graphs of codebases, remember project architecture
 - Use sequential_thinking for: complex multi-step problems, architecture decisions, debugging
 - Use filesystem tools for: exploring unfamiliar codebases, bulk file operations
+- Use sqlite for: tracking tasks, storing structured data, querying project metadata
 
 ## Communication
 - Be concise and direct
 - Show code with context (file path + relevant surrounding lines)
 - Explain "why" not just "what" for non-obvious decisions
+```
+
+### Rubber-Duck Critique Mode (use as a prompt)
+
+When you want the model to critique your code/plan before implementing, send this:
+
+```
+Act as a rubber-duck code reviewer. I'm going to describe my plan/implementation.
+Your job is to find:
+- Bugs, logic errors, off-by-one errors
+- Security vulnerabilities
+- Edge cases I missed
+- Design flaws or unnecessary complexity
+- Test coverage gaps
+
+Do NOT comment on style, formatting, or trivial matters.
+Be specific — point to exact problems and suggest fixes.
+If everything looks good, say so briefly.
+
+Here's what I'm working on:
+[paste your plan/code here]
+```
+
+### Code Review Agent Mode (use as a prompt)
+
+For reviewing git diffs:
+
+```
+Act as a senior code reviewer. Review the following diff with extremely high signal-to-noise ratio.
+Only surface issues that genuinely matter:
+- Bugs and logic errors
+- Security vulnerabilities
+- Performance issues that matter at scale
+- Breaking changes to public APIs
+
+Do NOT comment on: style, formatting, naming preferences, or minor suggestions.
+For each issue found, explain: what's wrong, why it matters, and how to fix it.
+
+Here's the diff:
+[paste git diff or describe changes]
 ```
 
 ---
@@ -854,6 +901,8 @@ Set-Content "$env:APPDATA\Code\User\globalStorage\saoudrizwan.claude-dev\setting
 | `@brave/brave-search-mcp-server` | npm MCP | 2.0.83 | `%APPDATA%\npm\node_modules\` |
 | `@gotza02/seq-thinking` | npm MCP | 1.3.5 | `%APPDATA%\npm\node_modules\` |
 | `@playwright/mcp` | npm MCP | 0.0.76 | `%APPDATA%\npm\node_modules\` |
+| `mcp-fetch-server` | npm MCP | latest | `%APPDATA%\npm\node_modules\` |
+| `mcp-sqlite-server` | npm MCP | latest | `%APPDATA%\npm\node_modules\` |
 | `mcp-server-git` | pip MCP | 2026.6.4 | Python312 Scripts |
 
 ---
