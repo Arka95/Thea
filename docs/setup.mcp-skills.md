@@ -589,83 +589,52 @@ If "Read project files" is enabled in Cline's Auto Approve settings, subagent la
 
 ---
 
-## System Prompts for Skills
+## System Prompts & Custom Instructions
 
-Add these as **custom instructions** in Cline settings (`Cline Settings → Custom Instructions`) to shape the model's behavior:
+### Where to add instructions (so they persist across every session):
 
-### Recommended System Prompt (All-in-one)
+| Method | Location | Persists? |
+|--------|----------|-----------|
+| **Cline Custom Instructions** (recommended) | Cline sidebar → ⚙️ Settings → "Custom Instructions" text box | ✅ Always loaded |
+| **Project-level `.clinerules`** | Create `.clinerules` file in project root | ✅ Loaded per-project |
+| **Global rules file** | `%USERPROFILE%\Documents\Cline\Rules\` (if supported by version) | ✅ All projects |
 
-```
-You are an expert software engineer and system administrator. Follow these rules:
+### 🔧 Setup (ensures instructions load every time):
 
-## Coding Standards
-- SOLID principles, DRY, Clean Code
-- Meaningful variable/function names, small single-responsibility functions
-- Always handle errors explicitly; never swallow exceptions
-- Use type hints (Python) and strict TypeScript mode
-- Follow PEP 8 (Python), ESLint+Prettier (JS/TS)
-- Security: validate inputs, sanitize outputs, never hardcode secrets
-- Write tests for critical paths; prefer composition over inheritance
+**Option A — Cline Custom Instructions (global, all projects):**
+1. Open VS Code → Cline sidebar → click ⚙️ Settings
+2. Find "Custom Instructions" text area
+3. Paste the full contents of [`docs/cline-custom-instructions.md`](cline-custom-instructions.md)
+4. Save — these load automatically every session, every project
 
-## GPU & System Knowledge
-- NVIDIA GPU: nvidia-smi, CUDA toolkit, cuDNN, memory management, compute capabilities
-- Windows PowerShell: cmdlets, pipelines, modules, aliases, script blocks
-- Model optimization: quantization (GGUF, GPTQ, AWQ), KV-cache, batch inference, mixed precision
-- Performance: profiling, bottleneck identification, hardware-aware optimization
+**Option B — Project-level `.clinerules` (per-repo, version-controlled):**
+1. Create a file called `.clinerules` in your project root:
+   ```powershell
+   Copy-Item "docs\cline-custom-instructions.md" ".clinerules"
+   ```
+2. Cline reads this automatically when you open the project
+3. Commit it to git so all team members get the same agent behavior
 
-## Tool Usage Behavior
-- Use playwright/fetch tools when: user asks about current events, latest versions, needs real-time data, or anything that may have changed since training. Playwright for interactive browsing, fetch for quick URL reads.
-- Use git tools to: commit with meaningful messages, check status before operations, create feature branches
-- Use memory tools to: build and maintain knowledge graphs of codebases, remember project architecture
-- Use sequential_thinking for: complex multi-step problems, architecture decisions, debugging
-- Use filesystem tools for: exploring unfamiliar codebases, bulk file operations
-- Use sqlite for: tracking tasks, storing structured data, querying project metadata
+**Option C — Both (recommended):**
+- Put core agent behavior in Cline Custom Instructions (global)
+- Put project-specific rules in `.clinerules` (e.g., "this project uses CUDA", "run tests with pytest")
 
-## Communication
-- Be concise and direct
-- Show code with context (file path + relevant surrounding lines)
-- Explain "why" not just "what" for non-obvious decisions
-```
+### Quick verification:
+After setting up, ask your model: "What are your core rules?"
+It should respond with the rules from your custom instructions.
 
-### Rubber-Duck Critique Mode (use as a prompt)
+### Available prompt modes (invoke by saying these phrases):
 
-When you want the model to critique your code/plan before implementing, send this:
+| Phrase | Behavior |
+|--------|----------|
+| "critique my plan/code" | Rubber-duck mode: finds bugs, logic errors, security issues, edge cases |
+| "review this diff" | Code review mode: high-signal only (bugs, security, breaking changes) |
+| "think step by step about X" | Uses sequential_thinking MCP for structured reasoning |
+| "build a knowledge graph of this repo" | Scans codebase, creates entities/relations in memory MCP |
+| "use subagents to explore X, Y, Z" | Spawns parallel focused research agents |
 
-```
-Act as a rubber-duck code reviewer. I'm going to describe my plan/implementation.
-Your job is to find:
-- Bugs, logic errors, off-by-one errors
-- Security vulnerabilities
-- Edge cases I missed
-- Design flaws or unnecessary complexity
-- Test coverage gaps
-
-Do NOT comment on style, formatting, or trivial matters.
-Be specific — point to exact problems and suggest fixes.
-If everything looks good, say so briefly.
-
-Here's what I'm working on:
-[paste your plan/code here]
-```
-
-### Code Review Agent Mode (use as a prompt)
-
-For reviewing git diffs:
-
-```
-Act as a senior code reviewer. Review the following diff with extremely high signal-to-noise ratio.
-Only surface issues that genuinely matter:
-- Bugs and logic errors
-- Security vulnerabilities
-- Performance issues that matter at scale
-- Breaking changes to public APIs
-
-Do NOT comment on: style, formatting, naming preferences, or minor suggestions.
-For each issue found, explain: what's wrong, why it matters, and how to fix it.
-
-Here's the diff:
-[paste git diff or describe changes]
-```
+### Full instructions file:
+See [`docs/cline-custom-instructions.md`](cline-custom-instructions.md) — paste this into Cline Custom Instructions.
 
 ---
 
