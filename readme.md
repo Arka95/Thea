@@ -358,3 +358,25 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 | [video_creator.md](docs/video_creator.md) | LTX-Video 2 + ComfyUI setup for local AI video generation (720p, RTX 4070 SUPER) |
 | [cline-custom-instructions.md](docs/cline-custom-instructions.md) | Agent behavior instructions (paste into Cline Custom Instructions) |
 | [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |
+
+How Agents Discover and Use Everything
+
+## Agent's Discovery Flow
+
+```
+Agent starts working in Thea/
+    ↓
+1. Read .instructions.md (THIS FILE) ← Comprehensive guide
+    ↓
+2. Check .vscode/skills/ ← Find available skills
+    ↓
+3. Read .vscode/tasks.json ← Find executable tasks
+    ↓
+4. Check .vscode/launch.json ← Find debug configs
+    ↓
+5. Check .vscode/prompts/ ← Find slash commands
+    ↓
+6. Read .vscode/settings.json ← Load workspace config
+    ↓
+Agent now fully understands available capabilities
+```

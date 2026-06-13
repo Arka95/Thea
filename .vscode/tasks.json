@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Fast Tests",
+      "type": "shell",
+      "command": "pytest",
+      "args": ["tests/fast", "-v"],
+      "problemMatcher": ["$pytest"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run All Tests",
+      "type": "shell",
+      "command": "pytest",
+      "args": ["tests", "-v", "--tb=short"],
+      "problemMatcher": ["$pytest"],
+      "group": "test"
+    },
+    {
+      "label": "Lint with Ruff",
+      "type": "shell",
+      "command": "ruff",
+      "args": ["check", ".", "--fix"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Format with Black",
+      "type": "shell",
+      "command": "black",
+      "args": [".", "--line-length", "100"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Type Check",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "mypy", ".", "--ignore-missing-imports"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Security Audit (Bandit)",
+      "type": "shell",
+      "command": "bandit",
+      "args": ["-r", ".", "-ll"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Main Pipeline",
+      "type": "shell",
+      "command": "python",
+      "args": ["main.py"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

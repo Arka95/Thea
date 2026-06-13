@@ -1,0 +1,48 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Main Pipeline",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "stopOnEntry": false
+    },
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: Fast Tests",
+      "type": "python",
+      "request": "launch",
+      "program": "-m",
+      "args": ["pytest", "tests/fast", "-v"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: Slow Tests",
+      "type": "python",
+      "request": "launch",
+      "program": "-m",
+      "args": ["pytest", "tests/slow", "-v", "-s"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: Profile Memory",
+      "type": "python",
+      "request": "launch",
+      "program": "-m",
+      "args": ["memory_profiler", "${file}"],
+      "console": "integratedTerminal"
+    }
+  ]
+}
