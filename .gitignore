@@ -20,6 +20,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 
 # Ignore virtual environment directories created by venv
 venv/
@@ -37,6 +38,8 @@ sample.MP4
 # Ignore pipeline data directories
 data/
 **/Thea/
+!src/thea/
+!src/thea/**
 
 # Ignore console output and scratch files
 Console Selection/

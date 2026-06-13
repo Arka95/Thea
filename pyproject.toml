@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thea"
+version = "2.0.0"
+description = "GPU-accelerated video stock-footage extractor CLI"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-contrib-python>=4.13.0",
+    "numpy",
+    "scipy",
+    "imageio-ffmpeg",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+dev = ["pytest", "pytest-cov"]
+
+[project.scripts]
+thea = "thea.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

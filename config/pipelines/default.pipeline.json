@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Default extraction pipeline: downscale → analyze → slice",
+  "pipeline": [
+    {
+      "operation": "downscale",
+      "config": {}
+    },
+    {
+      "operation": "analyze",
+      "config": {}
+    },
+    {
+      "operation": "slice",
+      "config": {}
+    }
+  ]
+}
