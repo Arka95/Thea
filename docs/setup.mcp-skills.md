@@ -16,7 +16,7 @@
 6. [🔧 Step 3: Configure Cline to Use Ollama](#-step-3-configure-cline-to-use-ollama)
 7. [🔧 Step 4: Install MCP Servers](#-step-4-install-mcp-servers)
 8. [🔧 Step 5: Configure MCP Servers in Cline](#-step-5-configure-mcp-servers-in-cline)
-9. [🔧 Step 6: Enable Web Search (Brave API Key)](#-step-6-enable-web-search-brave-api-key)
+9. [🔧 Step 6: Set Up Playwright for Web Browsing](#-step-6-set-up-playwright-for-web-browsing)
 10. [🔧 Step 7: Verify Everything Works](#-step-7-verify-everything-works)
 11. [Installed MCP Servers Reference](#installed-mcp-servers-reference)
 12. [System Prompts for Skills](#system-prompts-for-skills)
@@ -204,8 +204,8 @@ npm install -g @modelcontextprotocol/server-filesystem
 # Memory/Knowledge Graph: persistent entity-relation store
 npm install -g @modelcontextprotocol/server-memory
 
-# Web Search: Brave Search API integration
-npm install -g @brave/brave-search-mcp-server
+# Web Browsing: Playwright MCP for interactive browsing (FREE, no API key needed)
+npm install -g @playwright/mcp
 
 # Sequential Thinking: structured multi-step reasoning
 npm install -g @gotza02/seq-thinking
@@ -228,11 +228,13 @@ pip install mcp-server-git
 ### Verify installations:
 ```powershell
 # Check npm MCP packages
-npm list -g --depth=0 | Select-String "mcp|modelcontext|brave|seq"
+npm list -g --depth=0 | Select-String "mcp|modelcontext|playwright|seq"
 
 # Expected output:
-# +-- @brave/brave-search-mcp-server@2.0.83
+# +-- @playwright/mcp@0.0.76
 # +-- @gotza02/seq-thinking@1.3.5
+# +-- @modelcontextprotocol/server-filesystem@2026.1.14
+# +-- @modelcontextprotocol/server-memory@2026.1.26
 # +-- @modelcontextprotocol/server-filesystem@2026.1.14
 # +-- @modelcontextprotocol/server-memory@2026.1.26
 
@@ -287,15 +289,10 @@ Edit the file above and replace its contents with the following JSON. **Replace 
       ],
       "disabled": false
     },
-    "brave-search": {
-      "command": "node",
-      "args": [
-        "C:\\Users\\<USERNAME>\\AppData\\Roaming\\npm\\node_modules\\@brave\\brave-search-mcp-server\\dist\\index.js"
-      ],
-      "env": {
-        "BRAVE_API_KEY": "YOUR_BRAVE_API_KEY_HERE"
-      },
-      "disabled": true
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "disabled": false
     },
     "sequential-thinking": {
       "command": "node",
@@ -339,18 +336,28 @@ Add multiple paths as additional args to allow access to more directories.
 
 ---
 
-## 🔧 Step 6: Enable Web Search (Brave API Key)
+## 🔧 Step 6: Set Up Playwright for Web Browsing
 
-1. Go to https://brave.com/search/api/
-2. Sign up (free tier: **2000 queries/month**, no credit card needed)
-3. Copy your API key
-4. Edit the MCP config file:
+Playwright MCP is already installed and configured in Step 4. It provides **free, unlimited web browsing** with no API key required.
+
+### Features:
+- ✅ Navigate any URL
+- ✅ Click buttons and interact with elements
+- ✅ Fill forms and input fields
+- ✅ Take screenshots
+- ✅ Extract page content
+- ✅ Manage multiple browser tabs
+- ✅ Run JavaScript on pages
+- ✅ No rate limits, no API keys, completely free
+
+### Verify Playwright is enabled:
+1. Edit the MCP config file:
    ```
    %APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json
    ```
-5. Replace `"YOUR_BRAVE_API_KEY_HERE"` with your actual key
-6. Change `"disabled": true` to `"disabled": false` for the `brave-search` entry
-7. Restart VS Code / reload Cline
+2. Ensure the `playwright` entry has `"disabled": false`
+3. Restart VS Code / reload Cline
+4. Test by asking: "Navigate to github.com and take a screenshot"
 
 ---
 
@@ -361,7 +368,7 @@ Close and reopen VS Code (or run `Ctrl+Shift+P` → "Developer: Reload Window").
 
 ### Check MCP servers in Cline:
 1. Open Cline sidebar
-2. Look for the MCP status indicator (hammer icon 🔨) — click it
+2. Look for the MCP status indicator (hammer icon 🔨) — click playwright MCP → navigates browser and extracts content
 3. You should see all configured servers listed as "connected" (green)
 
 ### Test each capability:
@@ -371,7 +378,7 @@ Close and reopen VS Code (or run `Ctrl+Shift+P` → "Developer: Reload Window").
 | "List files in C:\Projects\Thea" | Uses filesystem MCP → shows directory listing |
 | "Show me the git log for this repo" | Uses git MCP → shows recent commits |
 | "Remember that this project uses CUDA for GPU acceleration" | Uses memory MCP → stores as entity |
-| "Search the web for the latest Ollama release notes" | Uses brave-search MCP → returns web results |
+| "Search the web for the latest Ollama release notes" | Uses playwright MCP → navigates browser and extracts content |
 | "Think step by step about how to optimize this function" | Uses sequential-thinking MCP → structured reasoning |
 | "Run nvidia-smi" | Uses Cline built-in terminal → shows GPU status |
 
@@ -469,26 +476,7 @@ Relation("Slicer" → "depends_on" → "MotionAssessment")
 
 ---
 
-### 4. 🔍 Brave Search Server
-
-| Property | Value |
-|----------|-------|
-| **Package** | `@brave/brave-search-mcp-server` |
-| **npm** | https://www.npmjs.com/package/@brave/brave-search-mcp-server |
-| **Language** | TypeScript/Node.js |
-| **Version installed** | 2.0.83 |
-| **API key** | Required (free tier: 2000/month) |
-| **Get key** | https://brave.com/search/api/ |
-
-**Tools provided:**
-| Tool | Description |
-|------|-------------|
-| `brave_web_search` | General web search with AI summaries |
-| `brave_local_search` | Local business/POI search |
-
----
-
-### 5. 🧩 Sequential Thinking Server
+### 4. 🧩 Sequential Thinking Server
 
 | Property | Value |
 |----------|-------|
@@ -506,7 +494,7 @@ Useful for: architecture decisions, debugging complex issues, planning multi-ste
 
 ---
 
-### 6. 🌐 Playwright Browser Server (FREE — No API Key)
+### 5. 🌐 Playwright Browser Server (FREE — No API Key)
 
 | Property | Value |
 |----------|-------|
@@ -531,13 +519,12 @@ Useful for: architecture decisions, debugging complex issues, planning multi-ste
 | `browser_wait` | Wait for page load/element |
 | `browser_tab_*` | Manage multiple tabs |
 
-**Why Playwright over Brave Search:**
-- **Free** — no API key, no monthly limits, no charges
+**Why Playwright for Web Browsing:**
+- **Free** — no API key, no monthly limits, no charges, completely unlimited
 - **Full browsing** — not just search results, but actual page content
-- **Interactive** — can fill forms, click buttons, navigate SPAs
+- **Interactive** — can fill forms, click buttons, navigate SPAs and dynamic sites
 - **Local** — all browsing happens on your machine via a real browser
-
-> **Note:** Brave Search MCP is still available in config (disabled) if you want faster structured search results in the future. Playwright gives you full browser access for free.
+- **JavaScript support** — can run scripts on pages and extract dynamic content
 
 ---
 
@@ -824,7 +811,7 @@ Add a new entry under `"mcpServers"`:
 | Cline can't find model | Settings show no models | Check Ollama base URL is `http://localhost:11434` |
 | MCP server "not found" | Red indicator in Cline MCP panel | Verify absolute paths in config JSON |
 | Git MCP not on PATH | `mcp-server-git` command not found | Use full path in config (see Step 5) |
-| Brave search 401 error | Invalid API key | Check key at https://brave.com/search/api/ |
+| Playwright navigation fails | Browser won't open | Ensure `@playwright/mcp` is installed; check network access |
 | Model not calling tools | Responds without using MCPs | Qwen 3 supports tools natively; check Cline "tool use" is enabled |
 | Memory not persisting | Knowledge graph resets | Check write permissions; memory stores in working directory |
 | Slow responses | Model takes >30s | Reduce model size or use GPU (`OLLAMA_GPU_LAYERS=99`) |
@@ -838,7 +825,7 @@ curl http://localhost:11434/api/tags
 nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu --format=csv
 
 # Check all npm MCP packages
-npm list -g --depth=0 | Select-String "mcp|modelcontext|brave|seq"
+npm list -g --depth=0 | Select-String "mcp|modelcontext|playwright|seq"
 
 # Check Python MCP packages
 pip list | Select-String "mcp"
@@ -867,7 +854,6 @@ Set-Content "$env:APPDATA\Code\User\globalStorage\saoudrizwan.claude-dev\setting
 | Cline | VS Code Extension | latest | VS Code extensions dir |
 | `@modelcontextprotocol/server-filesystem` | npm MCP | 2026.1.14 | `%APPDATA%\npm\node_modules\` |
 | `@modelcontextprotocol/server-memory` | npm MCP | 2026.1.26 | `%APPDATA%\npm\node_modules\` |
-| `@brave/brave-search-mcp-server` | npm MCP | 2.0.83 | `%APPDATA%\npm\node_modules\` |
 | `@gotza02/seq-thinking` | npm MCP | 1.3.5 | `%APPDATA%\npm\node_modules\` |
 | `@playwright/mcp` | npm MCP | 0.0.76 | `%APPDATA%\npm\node_modules\` |
 | `mcp-fetch-server` | npm MCP | latest | `%APPDATA%\npm\node_modules\` |
