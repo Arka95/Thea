@@ -34,7 +34,13 @@ from typing import Any, Dict, Optional
 from tools.storage.interfaces import IStorable
 
 STORAGE_NAME = "videos"
-_PARTIAL_CHUNK = 1 << 20  # 1 MiB head + tail for the fast signature
+# Head + tail window for the fast partial signature. Benchmarked at 256 KiB
+# against 999 real videos under D:\ (see tools/_benchmark_hash.py): it yields the
+# exact same de-duplication partition as a 1 MiB window (zero extra collisions)
+# while reading 4x less data.
+_PARTIAL_CHUNK = 1 << 18  # 256 KiB
+# Streaming block size for full-file hashing (kept larger for throughput).
+_READ_BLOCK = 1 << 20  # 1 MiB
 
 
 @dataclass
@@ -45,43 +51,74 @@ class Video(IStorable):
     because availability varies by container/codec.
     """
 
-    # --- filesystem identity (path & name always required) ---
+    # =========================================================================
+    # RELEVANT — the fields this organizer actually uses to file videos by
+    # year/month, directory, name, location, device, and resolution.
+    # =========================================================================
+
+    # -- filesystem identity (path & name always required) --
     path: str
     name: str
     content_hash: Optional[str] = None
     directory: Optional[str] = None
     extension: Optional[str] = None
     size_bytes: Optional[int] = None
-    modified_time: Optional[float] = None
-    created_time: Optional[float] = None
 
-    # --- container / format ---
+    # -- when it was shot: prefer creation_time (embedded), fall back to modified_time --
+    creation_time: Optional[str] = None        # embedded recording timestamp (container tag)
+    modified_time: Optional[float] = None       # filesystem mtime — fallback date
+
+    # -- capture device (derived; see tools/video_meta_strategy.py) --
+    device: Optional[str] = None                # unified label, e.g. "Apple iPhone 15 Plus", "GoPro", "DJI"
+    make: Optional[str] = None
+    model: Optional[str] = None
+
+    # -- location: parse ISO-6709 into queryable numbers; raw kept in `location` --
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
+    location_accuracy_m: Optional[float] = None
+    location: Optional[str] = None              # raw ISO-6709 string (audit/provenance)
+    location_source: Optional[str] = None       # how location was derived: "apple"/"android"/"path:..."
+    country: Optional[str] = None               # reverse-geocoded from lat/lon (see tools/geocoding.py)
+
+    # -- resolution / frame rate / duration --
+    width: Optional[int] = None
+    height: Optional[int] = None
+    fps: Optional[float] = None
+    duration_sec: Optional[float] = None
+
+    # -------------------------------------------------------------------------
+    # IRRELEVANT for organizing by year/month, directory, name, location or
+    # device. These are deep container / codec / stream technicals kept only for
+    # completeness and audit — safe to drop for a lean row.
+    # -------------------------------------------------------------------------
+
+    created_time: Optional[float] = None        # filesystem ctime — UNRELIABLE (reset on copy/move)
+
+    # -- container / format --
     format_name: Optional[str] = None
     format_long_name: Optional[str] = None
-    duration_sec: Optional[float] = None
     bit_rate: Optional[int] = None
     nb_streams: Optional[int] = None
     start_time: Optional[float] = None
     probe_score: Optional[int] = None
 
-    # --- stream counts ---
+    # -- stream counts --
     video_stream_count: Optional[int] = None
     audio_stream_count: Optional[int] = None
     subtitle_stream_count: Optional[int] = None
     data_stream_count: Optional[int] = None
 
-    # --- primary video stream ---
+    # -- primary video stream (technical) --
     video_codec: Optional[str] = None
     video_codec_long: Optional[str] = None
     video_profile: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
     coded_width: Optional[int] = None
     coded_height: Optional[int] = None
     pix_fmt: Optional[str] = None
     level: Optional[int] = None
     video_bit_rate: Optional[int] = None
-    fps: Optional[float] = None
     avg_frame_rate: Optional[str] = None
     r_frame_rate: Optional[str] = None
     nb_frames: Optional[int] = None
@@ -95,7 +132,7 @@ class Video(IStorable):
     field_order: Optional[str] = None
     bits_per_raw_sample: Optional[int] = None
 
-    # --- primary audio stream ---
+    # -- primary audio stream --
     audio_codec: Optional[str] = None
     audio_codec_long: Optional[str] = None
     audio_profile: Optional[str] = None
@@ -106,17 +143,13 @@ class Video(IStorable):
     audio_bit_rate: Optional[int] = None
     audio_bits_per_sample: Optional[int] = None
 
-    # --- common container tags ---
-    creation_time: Optional[str] = None
+    # -- other container tags --
     major_brand: Optional[str] = None
-    location: Optional[str] = None
-    make: Optional[str] = None
-    model: Optional[str] = None
     encoder: Optional[str] = None
     android_version: Optional[str] = None
     capture_fps: Optional[str] = None
 
-    # --- catch-all: full probed metadata as JSON (nothing lost) ---
+    # -- catch-all: full probed metadata as JSON (nothing lost) --
     raw_metadata: Optional[Dict[str, Any]] = None
 
     # -- IStorable contract ----------------------------------------------------
@@ -128,6 +161,19 @@ class Video(IStorable):
     @property
     def primary_key(self) -> str:
         return "content_hash"
+
+    def indexed_fields(self):
+        """Fields the organizer filters/sorts by — indexed for query speed.
+
+        Covers the organizing axes: name, directory, location (lat/lon +
+        reverse-geocoded country), capture date (creation_time) and device.
+        """
+        return ["name", "directory", "latitude", "longitude", "country",
+                "creation_time", "device"]
+
+    def unique_fields(self):
+        """``path`` is the natural key: a full file path is unique per file."""
+        return ["path"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Flat mapping of all fields (``None`` values included)."""
@@ -154,7 +200,7 @@ def compute_content_hash(path: str, algorithm: str = "sha256", partial: bool = F
     Args:
         path: File to hash.
         algorithm: Any :mod:`hashlib` algorithm name (default ``sha256``).
-        partial: If ``True``, hash only ``size + first 1 MiB + last 1 MiB`` for
+        partial: If ``True``, hash only ``size + first 256 KiB + last 256 KiB`` for
             speed. Fast and collision-resistant enough for de-duplication, but
             not a cryptographic guarantee of identical content. If ``False``,
             hash the whole file.
@@ -176,6 +222,6 @@ def compute_content_hash(path: str, algorithm: str = "sha256", partial: bool = F
         return "p:" + h.hexdigest()
 
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(_PARTIAL_CHUNK), b""):
+        for chunk in iter(lambda: f.read(_READ_BLOCK), b""):
             h.update(chunk)
     return h.hexdigest()

@@ -4,6 +4,7 @@ to and from the SQLite store.
 """
 
 import os
+import sqlite3
 import sys
 import threading
 
@@ -136,6 +137,89 @@ class TestSQLiteRoundTrip:
             t.join()
 
         assert len(store.all("videos")) == 100
+        store.close()
+
+
+class TestSQLiteIndexing:
+    def _indexes(self, store):
+        """Map index name -> (is_unique, indexed_column) from the live db."""
+        cur = store._conn.execute(
+            "SELECT name, \"unique\" FROM pragma_index_list('videos')"
+        )
+        out = {}
+        for row in cur.fetchall():
+            cols = store._conn.execute(
+                f"SELECT name FROM pragma_index_info('{row['name']}')"
+            ).fetchall()
+            out[row["name"]] = (bool(row["unique"]), [c["name"] for c in cols])
+        return out
+
+    def test_secondary_indexes_created(self):
+        store = SQLiteStore(":memory:")
+        store.save(make_video(1))
+        idx = self._indexes(store)
+        for field in ("name", "directory", "latitude", "longitude", "country",
+                      "creation_time", "device"):
+            name = f"idx_videos_{field}"
+            assert name in idx, f"missing index for {field}"
+            is_unique, cols = idx[name]
+            assert is_unique is False
+            assert cols == [field]
+        store.close()
+
+    def test_unique_index_on_path(self):
+        store = SQLiteStore(":memory:")
+        store.save(make_video(1))
+        idx = self._indexes(store)
+        assert "uix_videos_path" in idx
+        is_unique, cols = idx["uix_videos_path"]
+        assert is_unique is True
+        assert cols == ["path"]
+        store.close()
+
+    def test_unique_path_dedups_on_replace(self):
+        store = SQLiteStore(":memory:")
+        # same path under a new content hash: INSERT OR REPLACE resolves the
+        # UNIQUE(path) conflict by replacing the old row (one row per path).
+        store.save(Video(path="D:/dup.mp4", name="dup.mp4", content_hash="h1"))
+        store.save(Video(path="D:/dup.mp4", name="renamed.mp4", content_hash="h2"))
+        rows = store.all("videos")
+        assert len(rows) == 1
+        assert rows[0]["content_hash"] == "h2"
+        assert rows[0]["name"] == "renamed.mp4"
+        assert store.get("videos", "h1") is None  # old row replaced
+        store.close()
+
+    def test_indexes_are_idempotent_across_saves(self):
+        store = SQLiteStore(":memory:")
+        for i in range(3):
+            store.save(make_video(i, content_hash=f"h{i}"))
+        idx = self._indexes(store)
+        # exactly one index per declared field (no duplicates from re-saving)
+        assert sum(1 for n in idx if n.startswith("idx_videos_")) == 7
+        assert sum(1 for n in idx if n.startswith("uix_videos_")) == 1
+        store.close()
+
+    def test_indexes_persist_across_connections(self, tmp_path):
+        db = str(tmp_path / "idx.db")
+        with SQLiteStore(db) as store:
+            store.save(make_video(1))
+        # reopen: indexes were committed to the file
+        with SQLiteStore(db) as store:
+            idx = self._indexes(store)
+            assert "uix_videos_path" in idx
+            assert "idx_videos_directory" in idx
+
+    def test_directory_index_used_by_planner(self):
+        store = SQLiteStore(":memory:")
+        for i in range(20):
+            store.save(make_video(i, content_hash=f"h{i}"))
+        plan = store._conn.execute(
+            "EXPLAIN QUERY PLAN SELECT * FROM videos WHERE directory = ?",
+            ("D:/clips",),
+        ).fetchall()
+        detail = " ".join(str(r["detail"]) for r in plan)
+        assert "idx_videos_directory" in detail
         store.close()
 
 

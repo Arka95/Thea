@@ -22,7 +22,7 @@ import sqlite3
 import threading
 from typing import Any, Dict, List, Optional
 
-from .interfaces import IStorable, IStore
+from .interfaces import IStorable, IStore, QUERY_OPS
 
 _SCALAR = (str, int, float, bool, type(None))
 
@@ -69,6 +69,7 @@ class SQLiteStore(IStore):
         except sqlite3.Error:
             pass
         self._columns: Dict[str, set] = {}
+        self._indexes: Dict[str, set] = {}
 
     # -- IStore ----------------------------------------------------------------
 
@@ -85,6 +86,8 @@ class SQLiteStore(IStore):
         with self._lock:
             self._ensure_table(table, pk)
             self._ensure_columns(table, data.keys())
+            self._ensure_indexes(table, item.indexed_fields())
+            self._ensure_indexes(table, item.unique_fields(), unique=True)
 
             cols = list(data.keys())
             placeholders = ", ".join("?" for _ in cols)
@@ -115,6 +118,41 @@ class SQLiteStore(IStore):
             if not self._table_exists(storage_name):
                 return []
             cur = self._conn.execute(f"SELECT * FROM {_quote_ident(storage_name)}")
+            return [self._row_to_dict(r) for r in cur.fetchall()]
+
+    def query(self, storage_name, filters=None, order_by=None, limit=None):
+        """Indexed SQL implementation of :meth:`IStore.query`.
+
+        Filters compile to a parameterized ``WHERE`` (values are always bound,
+        never interpolated); the secondary indexes created for the storable's
+        fields let SQLite satisfy the common lookups without a full scan. A
+        filter on an unknown column yields no rows (nothing can match it).
+        """
+        with self._lock:
+            if not self._table_exists(storage_name):
+                return []
+            columns = self._fetch_columns(storage_name)
+
+            where, params = [], []
+            for field, op, value in (filters or []):
+                op_upper = op.upper()
+                if op_upper not in QUERY_OPS:
+                    raise ValueError(f"unsupported operator: {op!r}")
+                if field not in columns:
+                    return []
+                where.append(f"{_quote_ident(field)} {op_upper} ?")
+                params.append(value)
+
+            sql = f"SELECT * FROM {_quote_ident(storage_name)}"
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            if order_by and order_by in columns:
+                sql += f" ORDER BY {_quote_ident(order_by)}"
+            if limit is not None:
+                sql += " LIMIT ?"
+                params.append(int(limit))
+
+            cur = self._conn.execute(sql, params)
             return [self._row_to_dict(r) for r in cur.fetchall()]
 
     # -- lifecycle -------------------------------------------------------------
@@ -151,6 +189,35 @@ class SQLiteStore(IStore):
                 )
                 known.add(col)
         self._conn.commit()
+
+    def _ensure_indexes(self, table: str, fields, unique: bool = False) -> None:
+        """Create a secondary index per field, idempotently.
+
+        Only fields that already exist as columns are indexed; unknown fields are
+        skipped so storables may list optional fields safely. Indexes are created
+        with ``IF NOT EXISTS`` and tracked in-process to avoid redundant DDL. When
+        ``unique`` is ``True`` a ``UNIQUE`` index is created (natural-key fields).
+        """
+        if not fields:
+            return
+        columns = self._columns.setdefault(table, self._fetch_columns(table))
+        created = self._indexes.setdefault(table, set())
+        kind = "UNIQUE INDEX" if unique else "INDEX"
+        prefix = "uix" if unique else "idx"
+        changed = False
+        for field in fields:
+            marker = (field, unique)
+            if field not in columns or marker in created:
+                continue
+            index_name = f"{prefix}_{table}_{field}"
+            self._conn.execute(
+                f"CREATE {kind} IF NOT EXISTS {_quote_ident(index_name)} "
+                f"ON {_quote_ident(table)} ({_quote_ident(field)})"
+            )
+            created.add(marker)
+            changed = True
+        if changed:
+            self._conn.commit()
 
     def _table_exists(self, table: str) -> bool:
         cur = self._conn.execute(
