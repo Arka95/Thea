@@ -17,9 +17,15 @@ Do the following automatically, with no further questions:
 2. **Pick ONE fresh question** — a recent **Meta E5 / peer top-tech Senior-Staff infra/backend** style
    problem reflecting **latest 2025/26 trends**. If unsure what's current, do a quick web search for
    recent Meta E5 coding questions/patterns. Never reuse a question already in `session_log.md`.
-3. **Write it into `practice.py`** (overwrite the file) as a comment header containing: problem
-   statement + constraints, **input/output examples**, a **function template/signature stub**, and a
-   `# ---- YOUR SOLUTION BELOW ----` marker. Post the same question + examples in chat.
+3. **Write it into `practice.py`** (overwrite the file) as a comment header. **The comment header must
+   contain ONLY: the problem statement, constraints, and input/output examples — nothing else.**
+   Do **NOT** include any hints: no target time/space complexity, no pattern/topic labels (e.g.
+   "prefix-sum + hashmap"), no expected solve time, and no PACING SCRIPT block. Deriving the optimal
+   approach is part of the exercise. Below the comment header, include (as code, not hints): a
+   **function template/signature stub**, a `# ---- YOUR SOLUTION BELOW ----` marker, and a runnable
+   `main()` / `if __name__ == "__main__":` block that runs the provided example inputs through the
+   function and prints `got vs expected` (assert-style) so Arka can hit ▶ Run and self-check against
+   the examples immediately. Post the same question + examples in chat (again, no approach hints).
 4. **Start a 20-minute timer** (use a background timer/schedule). Announce start time + that the clock
    is running. Then **go silent**.
 5. **Silently poll `practice.py` every 1 minute** in the background; judge progress internally. Produce
@@ -44,13 +50,20 @@ one question per session unless "run a mock"; always time every attempt.
 ## How the drill works
 When Arka prompts **"give me a question"** (or similar), Thea will:
 1. **Pick ONE fresh question** — a recent Meta E5 (or peer top-tech Senior/Staff infra) style problem, chosen from **latest 2025/26 trends** (Meta-frequent tags, current OA/onsite patterns). No repeats within a session.
-2. **Write the question into `C:\projects\Thea\practice\practice.py`** as a comment block, containing:
-   - Problem statement + constraints
+2. **Write the question into `C:\projects\Thea\practice\practice.py`** as a comment block. **The
+   comment header must contain ONLY the problem statement, constraints, and input/output examples —
+   no hints of any kind** (no target complexity, no pattern/topic labels, no expected solve time, no
+   PACING SCRIPT block). Then, as code scaffolding below the header:
+   - Problem statement + constraints (comment header)
    - **Input/output examples** (in the chat AND as a comment in `practice.py`)
    - A **function template / signature stub** to implement and test
    - A `# ---- YOUR SOLUTION BELOW ----` marker
-   - Hidden expectations (target complexity, patterns) recorded separately, not shown up front.
-   The same question + examples are also posted in the chat.
+   - **A runnable `main()` / `if __name__ == "__main__":` harness that runs the provided example
+     inputs and prints `got vs expected`** — so Arka can press ▶ Run and instantly verify his code
+     against the examples (this trains the "run-before-submit" habit).
+   - Hidden expectations (target complexity, patterns) are recorded **only** in Thea's internal
+     evaluation notes — **never** written into `practice.py` or posted in chat.
+   The same question + examples are also posted in the chat (no approach hints there either).
 3. **Start a 20-minute timer.**
 4. Arka codes his solution in `practice.py` in VS Code.
 5. **Background evaluation loop:** Thea **polls `practice.py` every 1 minute** and judges progress
@@ -87,4 +100,6 @@ When Arka prompts **"give me a question"** (or similar), Thea will:
   session at all except a single neutral time announcement at 10 min. Feedback/judgement is delivered
   only at the end of the 20 min, never before.**
 - **Think aloud / write the approach as a comment first** before coding.
-- Enforce the pacing script: brute force by min 2, optimal by min 5, coding by min 6.
+- Internally coach the pacing reflex (brute force by min 2, optimal by min 5, coding by min 6), but
+  **do NOT write the pacing script into `practice.py`** — the file's comment header holds only the
+  problem, constraints, and examples.
