@@ -69,6 +69,7 @@ When Arka prompts **"give me a question"** (or similar), Thea will:
 5. **Background evaluation loop:** Thea **polls `practice.py` every 1 minute** and judges progress
    **silently in the background** for the full 20 minutes.
    - **No chat output during the session** — Thea stays quiet.
+   - dry runs may be added by Arka in dry run comments above main function in practice.py
    - **The 10-minute half-time mark is a neutral time marker only** (e.g., "10 minutes left") —
      **no feedback, judgement, hints, or evaluation before the 20 min is up.**
 6. **At 20 min (or on "done"):** Thea runs `practice.py` against test cases and evaluates:
