@@ -1,0 +1,25 @@
+Describe your professional experience developing and/or working on distributed backend systems
+
+I'm a backend engineer with 7 years of experience specializing in large-scale distributed systems with a 5+ year focus on Infrastructure-teams My core focus has been control-plane engineering — designing and operating the systems that manage the lifecycle of compute resources (node and VM provisioning, health, and recovery) across very large fleets. This work centers on distributed state machines that have to stay correct and reliable under partial failure, high concurrency, and continuous scale-up.
+I've taken infrastructure services from 0→1 to production, owning the design, delivery, and operational hardening of a fleet-management service that today runs demanding production workloads. Along the way I've driven multi-quarter, cross-team initiatives single-handedly.
+Beyond building, I am currently owning long-range technical roadmaps — weighing reliability, performance, and cost trade-offs — and mentor other engineers on distributed-systems design. My strengths sit squarely in the hard parts of backend infrastructure: lifecycle orchestration, resilience and fault recovery, state-machine correctness, and observability in multi-tenant, high-scale environments.
+
+What has been your favorite project or proudest accomplishment? Why?
+
+The project I'm proudest of is designing and delivering a Node Operations Service — the control-plane component responsible for orchestrating operations across the lifecycle of compute nodes at fleet scale (provisioning, power operations, health transitions, and recovery). I owned it from initial design through production and its subsequent scale-up.
+
+some technical challenges I got an opportunity to solve (for your example refernce:)
+
+1. Distributed state-machine correctness. Node operations are long-running and can fail or interleave at any step. I designed the service around an explicit state machine with idempotent, resumable transitions, so an operation could be retried or resumed after a crash without double-applying side effects or leaving a node in an inconsistent state.
+2. Safe orchestration of destructive operations. Power/lifecycle actions are high-blast-radius. I built guardrails and reconciliation [e.g. preventing conflicting concurrent operations on the same node, coordinating with dependent services, safe rollback on partial failure] so the system fails safe rather than fails open.
+3. Reliability under partial failure. External and downstream dependencies are flaky, so I designed for retries with backoff, timeouts, and reconciliation loops that continuously drive nodes toward their desired state rather than assuming a single request succeeds
+
+
+
+Palantir:
+
+The part I found most exciting was that it's fundamentally a distributed reliability problem: making large-scale, high-consequence operations dependable when every layer beneath you can fail — and doing it as a state-machine-driven control plane that's correct, safe, and observable
+
+ the combination of scale, constraint, and consequence. Systems like Apollo have to reason about deployment as a distributed control problem — dependencies, health, rollback, and safe orchestration across environments that can't be treated uniformly. That maps directly to how I think about lifecycle orchestration and fault recovery, and it's a step up in difficulty precisely because of the environments Palantir operates in. Building infrastructure where a mistake actually matters is more motivating to me than building for the easy case.
+I'm also drawn to Palantir's engineering culture of deep ownership and small teams solving hard, real-world problems end-to-end. I like owning a subsystem from design through operation, mentoring around distributed-systems design, and being close to the reliability and trade-off decisions that shape a platform. Palantir's infra team feels like a place where that kind of ownership is the norm and where the hardest infrastructure problems — mission-critical, secure, at scale — are the whole point.
+
