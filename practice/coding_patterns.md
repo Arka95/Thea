@@ -1,5 +1,13 @@
 # Coding Interview Patterns & Practice Problems
 
+## Free Problem Lists
+- [Blind 75 (NeetCode)](https://neetcode.io/practice?tab=blind75)
+- [Blind 75 (Tech Interview Handbook)](https://www.techinterviewhandbook.org/best-practice-questions/)
+- [NeetCode 150](https://neetcode.io/practice?tab=neetcode150)
+- [NeetCode 250](https://neetcode.io/practice?tab=neetcode250)
+- [Grind 75](https://www.techinterviewhandbook.org/grind75/)
+- [LeetCode Top Interview 150](https://leetcode.com/studyplan/top-interview-150/)
+
 ## When to Use Each Pattern
 - **Arrays & Hashing** — O(1) lookups/dedup/counting; map values to indices or frequencies.
 - **Two Pointers** — Sorted arrays or pair/triplet search; converge from both ends or fast/slow.
@@ -30,7 +38,7 @@
 <tr><td><a href="https://leetcode.com/problems/two-sum/">Two Sum</a></td><td><a href="https://leetcode.com/problems/contains-duplicate/">Contains Duplicate</a></td><td><a href="https://leetcode.com/problems/group-anagrams/">Group Anagrams</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/top-k-frequent-elements/">Top K Frequent Elements</a></td><td><a href="https://leetcode.com/problems/product-of-array-except-self/">Product of Array Except Self</a></td><td><a href="https://leetcode.com/problems/valid-sudoku/">Valid Sudoku</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/longest-consecutive-sequence/">Longest Consecutive Sequence</a></td><td><a href="https://leetcode.com/problems/encode-and-decode-strings/">Encode and Decode Strings</a></td><td><a href="https://leetcode.com/problems/subarray-sum-equals-k/">Subarray Sum Equals K</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/sort-colors/">Sort Colors</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/sort-colors/">Sort Colors</a></td><td><a href="https://leetcode.com/problems/valid-anagram/">Valid Anagram</a></td><td></td></tr>
 </table>
 
 ## Two Pointers
@@ -72,9 +80,9 @@
 ## Deque
 
 <table>
-<tr><td><a href="https://leetcode.com/problems/design-circular-deque/">Design Circular Deque</a></td><td><a href="https://leetcode.com/problems/design-front-middle-back-queue/">Design Front Middle Back Queue</a></td><td><a href="https://leetcode.com/problems/sliding-window-maximum/">Sliding Window Maximum</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/design-circular-deque/">Design Circular Deque</a></td><td><a href="https://leetcode.com/problems/design-front-middle-back-queue/">Design Front Middle Back Queue</a></td><td><a href="https://leetcode.com/problems/maximum-number-of-robots-within-budget/">Maximum Number of Robots Within Budget</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/shortest-subarray-with-sum-at-least-k/">Shortest Subarray with Sum at Least K</a></td><td><a href="https://leetcode.com/problems/jump-game-vi/">Jump Game VI</a></td><td><a href="https://leetcode.com/problems/constrained-subsequence-sum/">Constrained Subsequence Sum</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/continuous-subarrays/">Continuous Subarrays</a></td><td><a href="https://leetcode.com/problems/sum-of-subarray-minimums/">Sum of Subarray Minimums</a></td><td><a href="https://leetcode.com/problems/shortest-path-in-binary-matrix/">Shortest Path in Binary Matrix</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/continuous-subarrays/">Continuous Subarrays</a></td><td><a href="https://leetcode.com/problems/longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit/">Longest Continuous Subarray With Absolute Diff Less Than or Equal to Limit</a></td><td><a href="https://leetcode.com/problems/minimum-number-of-k-consecutive-bit-flips/">Minimum Number of K Consecutive Bit Flips</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/01-matrix/">01 Matrix</a></td><td></td><td></td></tr>
 </table>
 
@@ -82,7 +90,7 @@
 
 <table>
 <tr><td><a href="https://leetcode.com/problems/daily-temperatures/">Daily Temperatures</a></td><td><a href="https://leetcode.com/problems/next-greater-element-i/">Next Greater Element I</a></td><td><a href="https://leetcode.com/problems/next-greater-element-ii/">Next Greater Element II</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/largest-rectangle-in-histogram/">Largest Rectangle in Histogram</a></td><td><a href="https://leetcode.com/problems/maximal-rectangle/">Maximal Rectangle</a></td><td><a href="https://leetcode.com/problems/trapping-rain-water/">Trapping Rain Water</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/largest-rectangle-in-histogram/">Largest Rectangle in Histogram</a></td><td><a href="https://leetcode.com/problems/maximal-rectangle/">Maximal Rectangle</a></td><td><a href="https://leetcode.com/problems/sum-of-subarray-ranges/">Sum of Subarray Ranges</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/car-fleet/">Car Fleet</a></td><td><a href="https://leetcode.com/problems/asteroid-collision/">Asteroid Collision</a></td><td><a href="https://leetcode.com/problems/online-stock-span/">Online Stock Span</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/remove-duplicate-letters/">Remove Duplicate Letters</a></td><td><a href="https://leetcode.com/problems/sum-of-subarray-minimums/">Sum of Subarray Minimums</a></td><td><a href="https://leetcode.com/problems/next-greater-node-in-linked-list/">Next Greater Node In Linked List</a></td></tr>
 </table>
@@ -102,7 +110,7 @@
 <tr><td><a href="https://leetcode.com/problems/reverse-linked-list/">Reverse Linked List</a></td><td><a href="https://leetcode.com/problems/merge-two-sorted-lists/">Merge Two Sorted Lists</a></td><td><a href="https://leetcode.com/problems/linked-list-cycle/">Linked List Cycle</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/reorder-list/">Reorder List</a></td><td><a href="https://leetcode.com/problems/remove-nth-node-from-end-of-list/">Remove Nth Node From End of List</a></td><td><a href="https://leetcode.com/problems/copy-list-with-random-pointer/">Copy List with Random Pointer</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/add-two-numbers/">Add Two Numbers</a></td><td><a href="https://leetcode.com/problems/find-the-duplicate-number/">Find the Duplicate Number</a></td><td><a href="https://leetcode.com/problems/lru-cache/">LRU Cache</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/merge-k-sorted-lists/">Merge k Sorted Lists</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/merge-k-sorted-lists/">Merge k Sorted Lists</a></td><td><a href="https://leetcode.com/problems/reverse-nodes-in-k-group/">Reverse Nodes in K-Group</a></td><td></td></tr>
 </table>
 
 ## Trees
@@ -111,7 +119,9 @@
 <tr><td><a href="https://leetcode.com/problems/invert-binary-tree/">Invert Binary Tree</a></td><td><a href="https://leetcode.com/problems/maximum-depth-of-binary-tree/">Maximum Depth of Binary Tree</a></td><td><a href="https://leetcode.com/problems/diameter-of-binary-tree/">Diameter of Binary Tree</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/balanced-binary-tree/">Balanced Binary Tree</a></td><td><a href="https://leetcode.com/problems/same-tree/">Same Tree</a></td><td><a href="https://leetcode.com/problems/binary-tree-level-order-traversal/">Binary Tree Level Order Traversal</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/validate-binary-search-tree/">Validate Binary Search Tree</a></td><td><a href="https://leetcode.com/problems/kth-smallest-element-in-a-bst/">Kth Smallest Element in a BST</a></td><td><a href="https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/">Lowest Common Ancestor of a Binary Tree</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/binary-tree-maximum-path-sum/">Binary Tree Maximum Path Sum</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/binary-tree-maximum-path-sum/">Binary Tree Maximum Path Sum</a></td><td><a href="https://leetcode.com/problems/subtree-of-another-tree/">Subtree of Another Tree</a></td><td><a href="https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/">Lowest Common Ancestor of a BST</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/binary-tree-right-side-view/">Binary Tree Right Side View</a></td><td><a href="https://leetcode.com/problems/count-good-nodes-in-binary-tree/">Count Good Nodes in Binary Tree</a></td><td><a href="https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/">Construct Binary Tree from Preorder and Inorder Traversal</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/serialize-and-deserialize-binary-tree/">Serialize and Deserialize Binary Tree</a></td><td></td><td></td></tr>
 </table>
 
 ## Tries
@@ -120,7 +130,7 @@
 <tr><td><a href="https://leetcode.com/problems/implement-trie-prefix-tree/">Implement Trie (Prefix Tree)</a></td><td><a href="https://leetcode.com/problems/design-add-and-search-words-data-structure/">Design Add and Search Words Data Structure</a></td><td><a href="https://leetcode.com/problems/word-search-ii/">Word Search II</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/replace-words/">Replace Words</a></td><td><a href="https://leetcode.com/problems/map-sum-pairs/">Map Sum Pairs</a></td><td><a href="https://leetcode.com/problems/longest-word-in-dictionary/">Longest Word in Dictionary</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/search-suggestions-system/">Search Suggestions System</a></td><td><a href="https://leetcode.com/problems/maximum-xor-of-two-numbers-in-an-array/">Maximum XOR of Two Numbers in an Array</a></td><td><a href="https://leetcode.com/problems/design-search-autocomplete-system/">Design Search Autocomplete System</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/word-break/">Word Break</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/stream-of-characters/">Stream of Characters</a></td><td></td><td></td></tr>
 </table>
 
 ## Heap / Priority Queue
@@ -147,7 +157,7 @@
 <tr><td><a href="https://leetcode.com/problems/number-of-islands/">Number of Islands</a></td><td><a href="https://leetcode.com/problems/clone-graph/">Clone Graph</a></td><td><a href="https://leetcode.com/problems/max-area-of-island/">Max Area of Island</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/pacific-atlantic-water-flow/">Pacific Atlantic Water Flow</a></td><td><a href="https://leetcode.com/problems/surrounded-regions/">Surrounded Regions</a></td><td><a href="https://leetcode.com/problems/rotting-oranges/">Rotting Oranges</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/course-schedule/">Course Schedule</a></td><td><a href="https://leetcode.com/problems/course-schedule-ii/">Course Schedule II</a></td><td><a href="https://leetcode.com/problems/redundant-connection/">Redundant Connection</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/word-ladder/">Word Ladder</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/word-ladder/">Word Ladder</a></td><td><a href="https://leetcode.com/problems/walls-and-gates/">Walls and Gates</a></td><td><a href="https://leetcode.com/problems/shortest-path-in-binary-matrix/">Shortest Path in Binary Matrix</a></td></tr>
 </table>
 
 ## Advanced Graphs
@@ -165,7 +175,7 @@
 <tr><td><a href="https://leetcode.com/problems/climbing-stairs/">Climbing Stairs</a></td><td><a href="https://leetcode.com/problems/min-cost-climbing-stairs/">Min Cost Climbing Stairs</a></td><td><a href="https://leetcode.com/problems/house-robber/">House Robber</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/house-robber-ii/">House Robber II</a></td><td><a href="https://leetcode.com/problems/longest-palindromic-substring/">Longest Palindromic Substring</a></td><td><a href="https://leetcode.com/problems/palindromic-substrings/">Palindromic Substrings</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/decode-ways/">Decode Ways</a></td><td><a href="https://leetcode.com/problems/coin-change/">Coin Change</a></td><td><a href="https://leetcode.com/problems/longest-increasing-subsequence/">Longest Increasing Subsequence</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/maximum-product-subarray/">Maximum Product Subarray</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/maximum-product-subarray/">Maximum Product Subarray</a></td><td><a href="https://leetcode.com/problems/word-break/">Word Break</a></td><td></td></tr>
 </table>
 
 ## 2-D Dynamic Programming
@@ -174,7 +184,7 @@
 <tr><td><a href="https://leetcode.com/problems/unique-paths/">Unique Paths</a></td><td><a href="https://leetcode.com/problems/longest-common-subsequence/">Longest Common Subsequence</a></td><td><a href="https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/">Best Time to Buy and Sell Stock with Cooldown</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/coin-change-ii/">Coin Change II</a></td><td><a href="https://leetcode.com/problems/target-sum/">Target Sum</a></td><td><a href="https://leetcode.com/problems/interleaving-string/">Interleaving String</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/edit-distance/">Edit Distance</a></td><td><a href="https://leetcode.com/problems/distinct-subsequences/">Distinct Subsequences</a></td><td><a href="https://leetcode.com/problems/regular-expression-matching/">Regular Expression Matching</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/partition-equal-subset-sum/">Partition Equal Subset Sum</a></td><td></td><td></td></tr>
+<tr><td><a href="https://leetcode.com/problems/partition-equal-subset-sum/">Partition Equal Subset Sum</a></td><td><a href="https://leetcode.com/problems/longest-increasing-path-in-a-matrix/">Longest Increasing Path in a Matrix</a></td><td><a href="https://leetcode.com/problems/burst-balloons/">Burst Balloons</a></td></tr>
 </table>
 
 ## Greedy
@@ -182,7 +192,7 @@
 <table>
 <tr><td><a href="https://leetcode.com/problems/maximum-subarray/">Maximum Subarray</a></td><td><a href="https://leetcode.com/problems/jump-game/">Jump Game</a></td><td><a href="https://leetcode.com/problems/jump-game-ii/">Jump Game II</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/gas-station/">Gas Station</a></td><td><a href="https://leetcode.com/problems/hand-of-straights/">Hand of Straights</a></td><td><a href="https://leetcode.com/problems/merge-triplets-to-form-target-triplet/">Merge Triplets to Form Target Triplet</a></td></tr>
-<tr><td><a href="https://leetcode.com/problems/partition-labels/">Partition Labels</a></td><td><a href="https://leetcode.com/problems/valid-parenthesis-string/">Valid Parenthesis String</a></td><td><a href="https://leetcode.com/problems/non-overlapping-intervals/">Non-overlapping Intervals</a></td></tr>
+<tr><td><a href="https://leetcode.com/problems/partition-labels/">Partition Labels</a></td><td><a href="https://leetcode.com/problems/valid-parenthesis-string/">Valid Parenthesis String</a></td><td><a href="https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/">Minimum Number of Arrows to Burst Balloons</a></td></tr>
 <tr><td><a href="https://leetcode.com/problems/candy/">Candy</a></td><td></td><td></td></tr>
 </table>
 
