@@ -93,35 +93,42 @@ nvidia-smi
 
 ## Install and configure the VS Code client
 
-Install Cline:
 
-```powershell
-code --install-extension saoudrizwan.claude-dev
-code C:\projects\Thea
-```
 
-For the preferred LM Studio setup, configure Cline:
+For the preferred LM Studio setup, configure Cline as shown:
 
-1. Select `LM Studio` as the API provider.
-2. Set the base URL to `http://localhost:1234`.
-3. Select `qwen3-14b`.
-
-If the dedicated LM Studio provider is unavailable, use Cline's
-OpenAI-compatible provider with `http://localhost:1234/v1` as the base URL.
+<table>
+  <tr>
+    <td width="58%" valign="top">
+      <ol>
+      <li>Install Cline 
+          <code>code --install-extension saoudrizwan.claude-dev</code>
+        </li>
+        <li>Select <code>LM Studio</code> as the API provider.</li>
+        <li>Leave <strong>Use custom base URL</strong> disabled to use the default <a>http://localhost:1234</a>.</li>
+        <li>Select <code>qwen3-14b</code>.</li>
+        <li>Confirm that the detected context window is <code>8192</code>.</li>
+        <li>Enable <strong>Use compact prompt</strong> for the 8K context window.</li>
+      </ol>
+      <p>The MCP and Focus Chain warning is a Cline LM Studio-provider limitation, not a connection error.</p>
+      <p>If the dedicated LM Studio provider is unavailable, use Cline's
+OpenAI-compatible provider with <a>http://localhost:1234/v1</a> as the base URL.
 LM Studio does not require an API key unless authentication was explicitly
-enabled.
+enabled.</p>
+      <p>For the Ollama alternative:</p>
+      <ol>
+      <li>Select Ollama as the API provider.</li>
+      <li>Set base url as <a>http://localhost:1234</a></li>
+      <li>If necessary, Start Ollama :
+      <code>ollama serve</code></li>
+      </ol>
+    </td>
+    <td width="42%" align="right" valign="top">
+      <img src="images/cline-lmstudio-qwen3-14b.png" alt="Cline configured with the LM Studio qwen3-14b model" width="340">
+    </td>
+  </tr>
+</table>
 
-For the Ollama alternative:
-
-1. Select `Ollama` as the API provider.
-2. Set the base URL to `http://localhost:11434`.
-3. Select `qwen3:8b`.
-
-If necessary, start Ollama:
-
-```powershell
-ollama serve
-```
 
 ## Thea's MCP configuration
 
