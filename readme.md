@@ -355,7 +355,7 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 |------|-------------|
 | [setup.md](docs/setup.md) | Main sequenced setup and project-local Python environment |
 | [setup.gpu.md](docs/setup.gpu.md) | Configure FFmpeg, NVIDIA CUDA/cuDNN, and CPU versus GPU OpenCV |
-| [setup.local-llm-mcp.md](docs/setup.local-llm-mcp.md) | Configure VS Code, Ollama/Qwen 3, and Thea's MCP client |
+| [setup.local-llm-mcp.md](docs/setup.local-llm-mcp.md) | Configure VS Code, LM Studio or Ollama with Qwen 3, and Thea's MCP client |
 | [video_creator.md](docs/video_creator.md) | LTX-Video 2 + ComfyUI setup for local AI video generation (720p, RTX 4070 SUPER) |
 | [cline-custom-instructions.md](docs/cline-custom-instructions.md) | Agent behavior instructions (paste into Cline Custom Instructions) |
 | [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |

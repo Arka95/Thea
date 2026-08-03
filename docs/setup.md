@@ -8,19 +8,6 @@ This is the main setup entry point for Thea. Complete the guides in this order:
 
 The local AI setup is optional. The GPU/tool and Python setup steps are required.
 
-## Verified Python environment
-
-Validated on 2026-08-03:
-
-| Component | Version |
-|-----------|---------|
-| Python | 3.12.10 |
-| pip | 26.2 |
-| OpenCV | 4.13.0.90 |
-| NumPy | 2.5.1 |
-| SciPy | 1.18.0 |
-| pytest | 9.1.1 |
-
 ## 1. Complete the system tool setup
 
 Follow [`setup.gpu.md`](setup.gpu.md) first. It installs FFmpeg and, for GPU
@@ -98,14 +85,10 @@ With `.venv` activated:
 ```powershell
 python -m pip check
 python main.py presets
+# check that tests pass
 python -m pytest tests tools\tests -q
 ```
 
-Expected result:
-
-```text
-178 passed
-```
 
 For GPU mode, also run the GPU verification command from `setup.gpu.md`.
 
