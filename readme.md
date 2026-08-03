@@ -9,8 +9,8 @@ Thea identifies stable cinematic segments in video files using GPU-accelerated o
 ## Quick Start
 
 ```bash
-# Install dependencies (requires CUDA-enabled OpenCV — see docs/setup.md)
-pip install -r requirements.txt
+# Complete docs/setup.md once, then activate the project environment
+.\.venv\Scripts\Activate.ps1
 
 # Process a single video (full pipeline: downscale + analyze + slice)
 python main.py pipeline sample.MP4
@@ -146,8 +146,9 @@ Presets are JSON files discovered by filename stem. The active preset defines al
 
 | Folder | Tests | Runtime | Coverage |
 |--------|-------|---------|----------|
-| `fast/` | 47 | ~2s | Config loader, hardware detection, motion assessment enum, settings, pipeline logger |
-| `slow/` | 31 | ~18s | Optical flow, analyzer, downscaler, slicer, full pipeline |
+| `tests/fast/` | 47 | ~2s | Config loader, hardware detection, motion assessment enum, settings, pipeline logger |
+| `tests/slow/` | 31 | ~18s | Optical flow, analyzer, downscaler, slicer, full pipeline |
+| `tools/tests/` | 100 | ~20s | Storage, metadata, geocoding, search, and directory walking |
 
 Reference outputs in `tests/slow/reference_sample.json` ensure reproducible results across changes.
 
@@ -352,9 +353,9 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 
 | File | Description |
 |------|-------------|
-| [setup.md](docs/setup.md) | Install CUDA toolkit, cuDNN, and OpenCV with GPU acceleration |
-| [setup.localLLM.md](docs/setup.localLLM.md) | Configure IntelliJ with a local LLM (Ollama/Qwen) for AI-assisted development |
-| [setup.mcp-skills.md](docs/setup.mcp-skills.md) | Full MCP setup: VS Code + Cline + Ollama + web search, git, knowledge graph, filesystem tools |
+| [setup.md](docs/setup.md) | Main sequenced setup and project-local Python environment |
+| [setup.gpu.md](docs/setup.gpu.md) | Configure FFmpeg, NVIDIA CUDA/cuDNN, and CPU versus GPU OpenCV |
+| [setup.local-llm-mcp.md](docs/setup.local-llm-mcp.md) | Configure VS Code, Ollama/Qwen 3, and Thea's MCP client |
 | [video_creator.md](docs/video_creator.md) | LTX-Video 2 + ComfyUI setup for local AI video generation (720p, RTX 4070 SUPER) |
 | [cline-custom-instructions.md](docs/cline-custom-instructions.md) | Agent behavior instructions (paste into Cline Custom Instructions) |
 | [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |

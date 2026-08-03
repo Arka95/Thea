@@ -3,28 +3,6 @@
     "${workspaceFolder}/.vscode/skills",
     "${workspaceFolder}/.github/skills"
   ],
-  "mcp.servers": {
-    "filesystem": {
-      "type": "node",
-      "command": "node",
-      "args": ["-e", "require('@modelcontextprotocol/server-filesystem')"]
-    },
-    "memory": {
-      "type": "node",
-      "command": "node",
-      "args": ["-e", "require('@modelcontextprotocol/server-memory')"]
-    },
-    "seq-thinking": {
-      "type": "node",
-      "command": "node",
-      "args": ["-e", "require('@gotza02/seq-thinking')"]
-    },
-    "git": {
-      "type": "python",
-      "command": "python",
-      "args": ["-m", "mcp-server-git"]
-    }
-  },
   "[python]": {
     "editor.defaultFormatter": "ms-python.python",
     "editor.formatOnSave": true,
@@ -37,7 +15,8 @@
   "python.linting.ruffEnabled": true,
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": [
-    "tests"
+    "tests",
+    "tools/tests"
   ],
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.extraPaths": [
