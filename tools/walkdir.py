@@ -18,18 +18,24 @@ Two levels of API:
 CLI::
 
     python -m tools.walkdir [ROOT] [LIMIT]
+    python -m tools.walkdir E:\\ --db E:\\Thea\\videos.sqlite3 --geocode --infer-loc
     python tools/walkdir.py D:\\ 100
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import queue
 import threading
+from contextlib import nullcontext
 from typing import Callable, List, Optional
 
+from tools.geocoding import default_gazetteer, default_geocoder
 from tools.models.video import Video, compute_content_hash
 from tools.storage.interfaces import IStore
+from tools.storage.memory_store import InMemoryStore
+from tools.storage.sqlite_store import SQLiteStore
 from tools.video_meta_strategy import populate_video, run_ffprobe
 
 VIDEO_EXTENSIONS = {
@@ -203,44 +209,61 @@ def walk_and_store(
     return saved
 
 
-def main() -> None:
-    import sys
-    from tools.storage.memory_store import InMemoryStore
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Index video metadata recursively without modifying source videos."
+    )
+    parser.add_argument("root", nargs="?", default="D:\\")
+    parser.add_argument("limit", nargs="?", type=int)
+    parser.add_argument("--db", help="Persist the index in this SQLite database.")
+    parser.add_argument("--probe", action="store_true", help="Read embedded metadata with ffprobe.")
+    parser.add_argument("--geocode", action="store_true", help="Resolve GPS to country offline.")
+    parser.add_argument(
+        "--infer-loc", action="store_true", help="Infer missing GPS from folder names."
+    )
+    args = parser.parse_args(argv)
+    probe = args.probe or args.geocode or args.infer_loc
+    geocoder = default_geocoder() if args.geocode else None
+    place_gazetteer = default_gazetteer() if args.infer_loc else None
 
-    root = sys.argv[1] if len(sys.argv) > 1 else "D:\\"
-    limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
-    argv = sys.argv[1:]
-    probe = "--probe" in argv
-    geocode = "--geocode" in argv
-    infer_loc = "--infer-loc" in argv
+    if args.db:
+        os.makedirs(os.path.dirname(os.path.abspath(args.db)), exist_ok=True)
+        store_context = SQLiteStore(args.db)
+    else:
+        store_context = nullcontext(InMemoryStore())
 
-    geocoder = None
-    if geocode:
-        from tools.geocoding import default_geocoder
-        geocoder = default_geocoder()
-    place_gazetteer = None
-    if infer_loc:
-        from tools.geocoding import default_gazetteer
-        place_gazetteer = default_gazetteer()
+    with store_context as store:
+        print(
+            f"Walking {args.root} (up to {MAX_THREADS} threads, limit={args.limit}, "
+            f"probe={probe}, geocode={args.geocode}, infer_loc={args.infer_loc}) ...",
+            flush=True,
+        )
+        print(f"Index storage     : {args.db or 'in-memory (not persisted)'}")
+        saved = walk_and_store(
+            args.root,
+            store,
+            limit=args.limit,
+            probe=probe,
+            geocoder=geocoder,
+            place_gazetteer=place_gazetteer,
+        )
+        rows = store.all("videos")
+        print(f"Discovered & saved : {saved} videos")
+        print(f"Distinct in store  : {len(rows)} (after content_hash de-dup)")
 
-    store = InMemoryStore()
-    print(f"Walking {root} (up to {MAX_THREADS} threads, limit={limit}, "
-          f"probe={probe}, geocode={geocode}, infer_loc={infer_loc}) ...", flush=True)
-    saved = walk_and_store(root, store, limit=limit, probe=probe,
-                           geocoder=geocoder, place_gazetteer=place_gazetteer)
-    stored = len(store.all("videos"))
-    print(f"Discovered & saved : {saved} videos")
-    print(f"Distinct in store  : {stored} (after content_hash de-dup)")
-
-    for row in store.all("videos")[:8]:
-        loc = ""
-        if row.get("country"):
-            src = row.get("location_source") or ""
-            loc = f"  {row['country']} ({src})" if src.startswith("path") else f"  {row['country']}"
-        elif row.get("latitude") is not None:
-            loc = f"  @({row['latitude']},{row['longitude']})"
-        res = f"{row.get('width')}x{row.get('height')}" if row.get("width") else "?"
-        print(f"  - {row['name'][:34]:34s} {res:>10s}  dev={row.get('device')}{loc}")
+        for row in rows[:8]:
+            loc = ""
+            if row.get("country"):
+                src = row.get("location_source") or ""
+                loc = (
+                    f"  {row['country']} ({src})"
+                    if src.startswith("path")
+                    else f"  {row['country']}"
+                )
+            elif row.get("latitude") is not None:
+                loc = f"  @({row['latitude']},{row['longitude']})"
+            res = f"{row.get('width')}x{row.get('height')}" if row.get("width") else "?"
+            print(f"  - {row['name'][:34]:34s} {res:>10s}  dev={row.get('device')}{loc}")
 
 
 if __name__ == "__main__":

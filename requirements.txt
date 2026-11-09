@@ -3,6 +3,8 @@
 numpy
 scipy
 imageio-ffmpeg
+# ffprobe for metadata extraction and merge compatibility checks.
+static-ffmpeg
 # Offline reverse geocoding (lat/lon -> country) for tools/geocoding.py.
 reverse_geocoder
 pycountry

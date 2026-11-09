@@ -6,6 +6,7 @@ Commands:
     python main.py analyze <path> [--preset NAME] [--output csv|pkl]
     python main.py slice <path> [--preset NAME]
     python main.py pipeline <path> [--preset NAME] [--output DIR]
+    python main.py merge <video ...> [--manifest FILE] [--output-path FILE]
     python main.py presets
 
 Path can be a single video file (single mode) or a directory (batch mode).
@@ -37,7 +38,8 @@ from motion_assessment.analyzer import compute_motion_scores, detect_stable_wind
 from motion_assessment.assessment import MotionAssessment
 from downscaler.downscaler import downscale_video, batch_downscale
 from slicer.slicer import slice_video
-
+from merger import merge_videos, read_video_manifest
+from utils.settings import get_merged_dir
 
 logger = logging.getLogger("thea")
 
@@ -369,6 +371,31 @@ def cmd_pipeline(args, config):
 
 
 # ---------------------------------------------------------------------------
+# Command: merge
+# ---------------------------------------------------------------------------
+
+
+def cmd_merge(args, config):
+    """Concatenate ordered videos without modifying the inputs."""
+    if args.manifest and args.paths:
+        raise ValueError("Use video paths or --manifest, not both.")
+    paths = read_video_manifest(args.manifest) if args.manifest else args.paths
+    if len(paths) < 2:
+        raise ValueError("Provide at least two video paths or a manifest containing them.")
+    output = args.output_path
+    if output is None:
+        data_dir = resolve_data_dir(paths[0])
+        name = f"merge_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.mp4"
+        output = os.path.join(get_merged_dir(data_dir), name)
+    result = merge_videos(paths, output)
+    logger.info(
+        f"Merged {result['input_count']} videos -> {result['output']} "
+        f"({result['duration_sec']:.1f}s, {result['width']}x{result['height']}, "
+        f"stream copy, {result['time_sec']:.1f}s)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Command: presets
 # ---------------------------------------------------------------------------
 
@@ -441,6 +468,13 @@ Examples:
     # presets
     subparsers.add_parser("presets", help="List available configuration presets")
 
+    p = subparsers.add_parser("merge", help="Merge ordered, compatible videos without re-encoding")
+    p.add_argument("paths", nargs="*", help="Input videos in playback order")
+    p.add_argument("--manifest", help="UTF-8 file containing one input path per line, in order")
+    p.add_argument(
+        "--output-path", help="Output file (default: data_dir/merged/merge_<timestamp>.mp4)"
+    )
+
     return parser
 
 
@@ -458,7 +492,7 @@ def main():
 
     # Load config
     try:
-        if args.command == "presets":
+        if args.command in {"presets", "merge"}:
             config = {}
         elif hasattr(args, "config") and args.config:
             config = load_config_file(args.config)
@@ -476,6 +510,7 @@ def main():
         "slice": cmd_slice,
         "pipeline": cmd_pipeline,
         "presets": cmd_presets,
+        "merge": cmd_merge,
     }
 
     cmd_func = commands.get(args.command)

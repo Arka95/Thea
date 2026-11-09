@@ -238,15 +238,22 @@ _ISO6709 = re.compile(r"([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?
 
 
 def parse_iso6709(value: Optional[str]) -> Optional[Dict[str, Optional[float]]]:
-    """Parse an ISO-6709 string into lat/lon/alt floats, or ``None``."""
+    """Parse camera GPS, rejecting malformed, out-of-range and zero placeholders."""
+
     if not value:
         return None
-    m = _ISO6709.match(value.strip())
+    m = _ISO6709.fullmatch(value.strip())
     if not m:
         return None
+    latitude = float(m.group(1))
+    longitude = float(m.group(2))
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return None
+    if latitude == 0 and longitude == 0:
+        return None
     return {
-        "latitude": float(m.group(1)),
-        "longitude": float(m.group(2)),
+        "latitude": latitude,
+        "longitude": longitude,
         "altitude": float(m.group(3)) if m.group(3) else None,
     }
 

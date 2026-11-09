@@ -5,6 +5,7 @@ round-trip into the in-memory store.
 
 import os
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -13,7 +14,8 @@ import pytest
 import tools.walkdir as walkdir
 from tools.walkdir import find_video_paths, build_video, walk_and_store, MAX_THREADS
 from tools.storage.memory_store import InMemoryStore
-
+from tools.storage.sqlite_store import SQLiteStore
+from tools.geocoding import PlaceHit
 
 def _make_tree(root, n_videos=100, fanout=5, noise_per_dir=1):
     """Create a nested tree with ``n_videos`` uniquely-sized video files.
@@ -202,3 +204,52 @@ def test_walk_and_store_probe_populates_strategy_fields(tmp_path, monkeypatch):
                  if n not in (apple_name, "PXL_20240101_101010.mp4"))
     assert plain["device"] is None
     assert plain["latitude"] is None
+
+
+@pytest.mark.parametrize("flag", ["--geocode", "--infer-loc"])
+def test_cli_persists_location_index_without_positional_limit(tmp_path, monkeypatch, flag):
+    root = tmp_path / "India"
+    root.mkdir()
+    source = root / "clip.mp4"
+    payload = b"unchanged source video"
+    source.write_bytes(payload)
+    database = tmp_path / "index" / "videos.sqlite3"
+    probe = {
+        "format": {"tags": {"location": "+22.6188+88.4170/"} if flag == "--geocode" else {}},
+        "streams": _PIXEL_PROBE["streams"],
+    }
+    monkeypatch.setattr(walkdir, "run_ffprobe", lambda path: probe)
+    monkeypatch.setattr(
+        walkdir,
+        "default_geocoder",
+        lambda: SimpleNamespace(country=lambda latitude, longitude: "India"),
+    )
+    monkeypatch.setattr(
+        walkdir,
+        "default_gazetteer",
+        lambda: SimpleNamespace(
+            lookup=lambda name: (
+                PlaceHit(22.5, 79.0, "India", "country", "India") if name == "india" else None
+            )
+        ),
+    )
+
+    walkdir.main([str(root), "--db", str(database), flag])
+
+    with SQLiteStore(str(database)) as store:
+        rows = store.all("videos")
+    assert len(rows) == 1
+    assert rows[0]["path"] == str(source)
+    assert rows[0]["width"] == 1920
+    assert rows[0]["country"] == "India"
+    expected_source = "android" if flag == "--geocode" else "path:country:India"
+    assert rows[0]["location_source"] == expected_source
+    assert source.read_bytes() == payload
+
+
+def test_cli_preserves_legacy_positional_limit(tmp_path, capsys):
+    _make_tree(str(tmp_path), n_videos=3)
+    walkdir.main([str(tmp_path), "1"])
+    output = capsys.readouterr().out
+    assert "Distinct in store  : 1 " in output
+    assert "in-memory (not persisted)" in output

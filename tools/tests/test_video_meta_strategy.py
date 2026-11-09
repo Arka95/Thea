@@ -124,6 +124,34 @@ def test_parse_iso6709_variants():
     assert parse_iso6709("garbage") is None
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "+0.0000+0.0000",
+        "-0.0+000.0/",
+        "+91.0+000.0/",
+        "+00.0-181.0/",
+        "+22.6188+88.4170/garbage",
+    ],
+)
+def test_parse_iso6709_rejects_unusable_camera_gps(value):
+    assert parse_iso6709(value) is None
+
+
+@pytest.mark.parametrize(
+    "value,latitude,longitude",
+    [
+        ("+0.0+15.0/", 0.0, 15.0),
+        ("+17.0+0.0/", 17.0, 0.0),
+        ("-90.0+180.0/", -90.0, 180.0),
+    ],
+)
+def test_parse_iso6709_preserves_valid_boundary_coordinates(value, latitude, longitude):
+    parsed = parse_iso6709(value)
+    assert parsed["latitude"] == latitude
+    assert parsed["longitude"] == longitude
+
+
 def test_location_apple_with_altitude_and_accuracy():
     p = probe(fmt_tags={
         "com.apple.quicktime.location.ISO6709": "+17.2546+078.6767+509.629/",
@@ -232,6 +260,16 @@ def test_populate_video_skips_geocoding_without_coords():
     assert geo.calls == []  # geocoder never invoked
 
 
+@pytest.mark.parametrize("tag", ["location", "com.apple.quicktime.location.ISO6709"])
+def test_populate_video_does_not_geocode_zero_placeholders(tag):
+    video = Video(path="clip.mp4", name="clip.mp4")
+    geocoder = _FakeGeocoder("Ghana")
+    populate_video(video, probe(fmt_tags={tag: "+0.0000+0.0000"}), geocoder=geocoder)
+    assert video.latitude is None and video.longitude is None
+    assert video.country is None
+    assert geocoder.calls == []
+
+
 def test_populate_video_no_geocoder_leaves_country_none():
     p = probe(fmt_tags={"location": "+37.9838+023.7275/"})
     v = Video(path="D:/clip.mp4", name="clip.mp4")
@@ -283,6 +321,28 @@ def test_gps_location_beats_path_fallback():
     assert v.latitude == 12.9716  # GPS wins, not the centroid
     assert v.location_source == "android"
     assert gaz.calls == []  # path fallback never consulted when GPS exists
+
+
+@pytest.mark.parametrize("tag", ["location", "com.apple.quicktime.location.ISO6709"])
+@pytest.mark.parametrize("value", ["+0.0000+0.0000", "+91.0+023.0/"])
+def test_unusable_gps_allows_labelled_folder_fallback(tag, value):
+    gazetteer = _FakeGazetteer(
+        {
+            "greece": PlaceHit(38.9, 23.2, "Greece", "country", "Greece"),
+        }
+    )
+    geocoder = _FakeGeocoder("Ghana")
+    video = Video(path="D:/Greece/clip.mp4", name="clip.mp4")
+    populate_video(
+        video,
+        probe(fmt_tags={tag: value}),
+        geocoder=geocoder,
+        place_gazetteer=gazetteer,
+    )
+    assert video.country == "Greece"
+    assert (video.latitude, video.longitude) == (38.9, 23.2)
+    assert video.location_source == "path:country:Greece"
+    assert geocoder.calls == []
 
 
 def test_path_fallback_no_match_leaves_location_empty():
