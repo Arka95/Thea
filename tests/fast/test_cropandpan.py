@@ -124,6 +124,13 @@ def test_center_crop_positions_the_rectangle(media):
     assert _position_at(media, 0) == (1420, 780)
 
 
+@pytest.mark.parametrize("size", [(4000, 600), (1000, 2200)])
+def test_oversized_center_crop_reports_frame_bounds(media, size):
+    with pytest.raises(ValueError, match="outside"):
+        module.centercrop(media.source, *size, output_path=media.output)
+    assert not media.commands
+
+
 @pytest.mark.parametrize(
     "width,height,x,y",
     [

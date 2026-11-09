@@ -297,6 +297,7 @@ def centercrop(video, width: int, height: int, *, output_path=None) -> str:
     _pixel(width, "width")
     _pixel(height, "height")
     source = _read_video(video)
+    _rectangle(source, width, height, 0, 0)
     start = ((source.width - width) // 2, (source.height - height) // 2)
     return _render(source, width, height, start, start, None, "centercrop", output_path)
 
