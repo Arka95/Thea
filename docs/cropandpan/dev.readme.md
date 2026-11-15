@@ -1,15 +1,18 @@
 # Crop and pan development
 
-[Thea README](../../readme.md) | [Usage](README.md)
+[Thea README](../../README.md) | [Usage](README.md)
 
 ## Ownership and dependencies
 
 `src\cropandpan` owns frame geometry, ratio fitting, linear crop expressions and
-the four public Python APIs. New source is under `src`; existing root-level
-modules are not relocated.
+the four public Python APIs. All application modules now live under `src`;
+their existing import names remain available through editable installation.
 Reuse `tools.video_meta_strategy.run_ffprobe`, `utils.ffmpeg.get_ffmpeg_exe`,
 `utils.settings` data-directory resolution and `utils.metrics.track`.
 No new dependency, GPU detection or background service is required.
+`src\cli\commands.py` exposes these functions without duplicating geometry.
+CLI/MCP defaults pass `None` through to the APIs; interface tests live in
+`src\cli\tests`.
 
 ## Processing
 
@@ -39,9 +42,9 @@ source before data-directory resolution or encoding.
 Run the existing fast runner, with probes and FFmpeg replaced by fakes:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\fast\test_cropandpan.py tests\fast\test_merger.py tests\fast\test_settings.py -q --tb=short
-.\.venv\Scripts\python.exe -m ruff check src\cropandpan tests\fast\test_cropandpan.py
-.\.venv\Scripts\python.exe -m black --check --line-length 100 src\cropandpan tests\fast\test_cropandpan.py
+python -m pytest src\cropandpan\tests src\merger\tests src\utils\tests\test_settings.py -q --tb=short
+python -m ruff check src\cropandpan
+python -m black --check --line-length 100 src\cropandpan
 ```
 
 Tests cover geometry/bounds, exact ratios and no-ops, rotations and sample aspect

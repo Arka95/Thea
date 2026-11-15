@@ -1,10 +1,16 @@
-# Optional: VS Code, Qwen 3, and Thea MCP
+# Optional local AI and external MCP clients
+
+[Back to Thea](../README.md) | [Agent tooling](agents/README.md)
 
 This optional guide configures VS Code with Qwen 3 through LM Studio
-(preferred) or Ollama, and enables Thea's project-scoped MCP servers. It does
+(preferred) or Ollama, and describes existing external MCP client connections. It does
 not cover Python project compilation or the CUDA toolchain.
 
 Complete [`setup.md`](setup.md) first.
+
+This preserves the existing optional setup guide; model releases, provider UI,
+hardware estimates and commands were not revalidated during the layout change.
+Nothing here is a required development step or authorization to load a model.
 
 ## Install VS Code and Node.js
 
@@ -97,42 +103,22 @@ nvidia-smi
 
 For the preferred LM Studio setup, configure Cline as shown:
 
-<table>
-  <tr>
-    <td width="58%" valign="top">
-      <ol>
-      <li>Install Cline 
-          <code>code --install-extension saoudrizwan.claude-dev</code>
-        </li>
-        <li>Select <code>LM Studio</code> as the API provider.</li>
-        <li>Leave <strong>Use custom base URL</strong> disabled to use the default <a>http://localhost:1234</a>.</li>
-        <li>Select <code>qwen3-14b</code>.</li>
-        <li>Confirm that the detected context window is <code>8192</code>.</li>
-        <li>Enable <strong>Use compact prompt</strong> for the 8K context window.</li>
-      </ol>
-      <p>The MCP and Focus Chain warning is a Cline LM Studio-provider limitation, not a connection error.</p>
-      <p>If the dedicated LM Studio provider is unavailable, use Cline's
-OpenAI-compatible provider with <a>http://localhost:1234/v1</a> as the base URL.
-LM Studio does not require an API key unless authentication was explicitly
-enabled.</p>
-      <p>For the Ollama alternative:</p>
-      <ol>
-      <li>Select Ollama as the API provider.</li>
-      <li>Set base url as <a>http://localhost:1234</a></li>
-      <li>If necessary, Start Ollama :
-      <code>ollama serve</code></li>
-      </ol>
-    </td>
-    <td width="42%" align="right" valign="top">
-      <img src="images/cline-lmstudio-qwen3-14b.png" alt="Cline configured with the LM Studio qwen3-14b model" width="340">
-    </td>
-  </tr>
-</table>
+1. Install Cline with `code --install-extension saoudrizwan.claude-dev`.
+2. Select the LM Studio provider, the configured server URL and `qwen3-14b`.
+3. Match the context window to the loaded model's configuration; the existing
+   example uses 8192 tokens and a compact prompt.
+
+If using a compatible HTTP provider instead, use the configured server's API
+base URL and authentication settings. For Ollama, select its provider and actual
+server URL rather than reusing the LM Studio endpoint.
+
+![Existing Cline and LM Studio configuration](images/cline-lmstudio-qwen3-14b.png)
 
 
-## Thea's MCP configuration
+## External MCP client configuration
 
-The project-scoped client configuration is checked in at:
+The project-scoped client configuration is checked in at the editor's expected
+location below. These are external tools, not Thea-owned application servers:
 
 ```text
 .vscode/mcp.json
@@ -146,7 +132,8 @@ The project-scoped client configuration is checked in at:
 | `git` | Inspect repository history and changes |
 
 The Node servers run through `npx`; they do not require global npm installs.
-Install the Git MCP executable into Thea's existing `.venv`:
+Install the optional Git MCP executable only when setting up that integration.
+The checked-in client currently points at Thea's existing isolated `.venv`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-mcp.txt
@@ -154,10 +141,10 @@ Install the Git MCP executable into Thea's existing `.venv`:
 
 ## Enable and verify MCP
 
-1. Open `C:\projects\Thea` as the VS Code workspace.
+1. Open `C:\projectWorkspace\Thea` as the VS Code workspace.
 2. Open Cline's MCP/server panel.
 3. Enable the servers declared in `.vscode/mcp.json`.
-4. Approve filesystem access only for `C:\projects\Thea`.
+4. Approve filesystem access only for `C:\projectWorkspace\Thea`.
 
 Use these read-only verification prompts:
 
@@ -174,7 +161,7 @@ Use these read-only verification prompts:
 - Do not store credentials, video contents, or sensitive data in MCP memory.
 - Keep Python MCP packages inside `.venv`.
 - Use Git MCP for inspection and the terminal for explicit commits.
-- Prefer the checked-in workflows under `.vscode/skills/`.
+- Prefer built-in tools and follow `AGENTS.md`; workflows are under `.github\skills`.
 
 ## Troubleshooting
 

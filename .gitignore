@@ -32,7 +32,7 @@ venv/
 sample.MP4
 
 # But track the test sample video
-!tests/sample.mp4
+!src/integration_tests/fixtures/sample.mp4
 
 # Ignore pipeline data directories
 data/
@@ -43,3 +43,31 @@ Console Selection/
 Scratches and Consoles/
 
 *.whl
+
+# Local configuration, environments, and generated development artifacts.
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+.venv-*/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+dist/
+/agenttests/
+/models/
+/outputs/
+/workspace/
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+Thumbs.db
