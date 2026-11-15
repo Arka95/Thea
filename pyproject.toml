@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thea-video"
+version = "0.1.0"
+description = "Video stock-footage extraction and catalogue tools"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[project.scripts]
+thea = "main:main"
+thea-index = "tools.walkdir:main"
+thea-mcp = "cli.mcp:main"
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.0,<3"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+exclude = ["*.tests", "*.tests.*", "integration_tests", "integration_tests.*"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "src/cli/tests",
+    "src/cropandpan/tests",
+    "src/merger/tests",
+    "src/motion_assessment/tests",
+    "src/sampled_captioner/tests",
+    "src/tools/tests",
+    "src/utils/tests",
+]
+pythonpath = ["src"]
+addopts = "--import-mode=importlib"
+norecursedirs = [".git", ".venv", "data", "agenttests", "integration_tests"]

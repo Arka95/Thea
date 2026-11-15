@@ -1,9 +1,26 @@
 # Crop and pan
 
-[Thea README](../../readme.md) | [Developer guide](dev.readme.md)
+[Thea README](../../README.md) | [Developer guide](dev.readme.md)
+
+## CLI and MCP
+
+```powershell
+thea crop "clip.mp4" 1000 600 100 200 --output-path "crop.mp4"
+thea centercrop "clip.mp4" 1080 1080 --output-path "square.mp4"
+thea ratiocrop "clip.mp4" 9 16 --output-path "portrait.mp4"
+thea pan "clip.mp4"
+thea pan "clip.mp4" --resolutionx 1000 --resolutiony 600 --startx 2840 --starty 780 --endx 0 --endy 780 --duration 5
+```
+
+Commands print `{"output": "<path>"}`. Matching MCP tools accept `path` plus the
+same named arguments; CLI options use hyphens where MCP uses underscores.
+See [MCP usage](../mcp/README.md). Omitting pan geometry, endpoints and duration
+keeps the existing 9:16/full-duration traversal defaults.
+
+## Python API
 
 ```python
-from src.cropandpan import crop, centercrop, ratiocrop, pan
+from cropandpan import crop, centercrop, ratiocrop, pan
 
 crop("clip.mp4", 1000, 600, 100, 200, output_path=r"E:\Thea\cropandpan\crop.mp4")
 centercrop("clip.mp4", 1080, 1080, output_path=r"E:\Thea\cropandpan\square.mp4")
@@ -75,4 +92,4 @@ The slicer's `reencode` setting does not disable these necessary transformations
 
 Source files and existing destinations are never overwritten. Encoding uses a
 temporary sibling directory; results are probed before publication and partial
-files are removed on failure. There are Python APIs, not new `main.py` commands.
+files are removed on failure. The CLI and MCP wrappers retain these API contracts.

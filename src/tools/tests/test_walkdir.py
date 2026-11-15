@@ -1,0 +1,479 @@
+"""
+tools/tests/test_walkdir.py — Tests for the multithreaded video walker and its
+round-trip into the in-memory store.
+"""
+
+import json
+import os
+from datetime import UTC, datetime
+from types import SimpleNamespace
+
+import pytest
+
+import tools.walkdir as walkdir
+from tools.geocoding import PlaceHit
+from tools.storage.memory_store import InMemoryStore
+from tools.storage.sqlite_store import SQLiteStore
+from tools.walkdir import MAX_THREADS, build_video, find_video_paths, walk_and_store
+
+
+def _make_tree(root, n_videos=100, fanout=5, noise_per_dir=1):
+    """Create a nested tree with ``n_videos`` uniquely-sized video files.
+
+    Files are spread across subfolders (``fanout`` per level). Each video gets a
+    distinct byte payload so its partial content hash is unique (no accidental
+    de-dup). A few non-video files are scattered in as noise.
+    """
+    made = []
+    for i in range(n_videos):
+        # deterministic nesting: level0/levelA/... to force recursion + threads
+        sub = os.path.join(root, f"d{i % fanout}", f"s{(i // fanout) % fanout}")
+        os.makedirs(sub, exist_ok=True)
+        ext = [".mp4", ".mkv", ".mov", ".avi", ".webm"][i % 5]
+        p = os.path.join(sub, f"video_{i:04d}{ext}")
+        with open(p, "wb") as f:
+            f.write(f"payload-{i}-".encode() + b"\0" * (i + 1))  # unique content+size
+        made.append(p)
+        if i % max(1, n_videos // noise_per_dir // 10 or 1) == 0:
+            with open(os.path.join(sub, f"note_{i}.txt"), "w") as f:
+                f.write("not a video")
+    return made
+
+
+def test_finds_only_videos(tmp_path):
+    made = _make_tree(str(tmp_path), n_videos=100)
+    found = find_video_paths(str(tmp_path))
+    assert len(found) == len(made) == 100
+    assert set(found) == set(made)
+    assert all(os.path.splitext(p)[1].lower() != ".txt" for p in found)
+
+
+def test_respects_thread_cap(tmp_path):
+    _make_tree(str(tmp_path), n_videos=30)
+    # requesting more than the cap must not error and must still find everything
+    found = find_video_paths(str(tmp_path), max_threads=50)
+    assert len(found) == 30
+
+
+def test_limit_stops_early(tmp_path):
+    _make_tree(str(tmp_path), n_videos=100)
+    found = find_video_paths(str(tmp_path), limit=25)
+    # approximate under concurrency, but must never exceed by more than a scandir batch
+    assert 25 <= len(found) <= 100
+    assert len(found) < 100
+
+
+def test_empty_tree(tmp_path):
+    assert find_video_paths(str(tmp_path)) == []
+
+
+def test_walk_and_store_dumps_100_videos(tmp_path):
+    made = _make_tree(str(tmp_path), n_videos=100)
+    store = InMemoryStore()
+    saved = walk_and_store(str(tmp_path), store, limit=None)
+
+    assert saved == 100
+    rows = store.all("videos")
+    assert len(rows) == 100  # unique content => no de-dup collapse
+    # every stored row is a real video with identity fields populated
+    names = {r["name"] for r in rows}
+    assert names == {os.path.basename(p) for p in made}
+    for r in rows:
+        assert r["content_hash"] is not None
+        assert r["content_hash"].startswith("p:")  # partial signature
+        assert r["size_bytes"] is not None
+        assert r["directory"] and r["extension"]
+
+
+def test_build_video_missing_file(tmp_path):
+    assert build_video(str(tmp_path / "nope.mp4")) is None
+
+
+@pytest.mark.parametrize(
+    "probe,recorded",
+    [
+        (None, None),
+        ({"format": {}, "streams": []}, None),
+        ({"format": {"tags": {"creation_time": "2024-01-02T03:04:05Z"}}}, "2024-01-02T03:04:05Z"),
+        (
+            {
+                "streams": [
+                    {"codec_type": "video", "tags": {"CREATION_TIME": "2024-01-02T03:04:05Z"}}
+                ]
+            },
+            "2024-01-02T03:04:05Z",
+        ),
+        (
+            {
+                "format": {
+                    "tags": {
+                        "creation_time": "2000-01-01T00:00:00Z",
+                        "com.apple.quicktime.creationdate": "2024-01-02T03:04:05Z",
+                    }
+                }
+            },
+            "2024-01-02T03:04:05Z",
+        ),
+    ],
+)
+def test_creation_time_prefers_embedded_recording_time_then_filesystem_creation(
+    tmp_path, monkeypatch, probe, recorded
+):
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"synthetic footage")
+    os.utime(source, (1000000000, 1000000000))
+    stat = source.stat()
+    fallback = datetime.fromtimestamp(getattr(stat, "st_birthtime", stat.st_ctime), UTC).isoformat()
+    monkeypatch.setattr(walkdir, "run_ffprobe", lambda path: probe)
+    video = build_video(str(source), probe=True)
+    assert video.creation_time == (recorded or fallback)
+    assert "created_time" not in video.to_dict() and "modified_time" not in video.to_dict()
+
+
+def test_probe_only_populates_kept_fields_and_never_copies_file_tags(tmp_path, monkeypatch):
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"synthetic footage")
+    metadata = {
+        **_APPLE_PROBE,
+        "format": {
+            **_APPLE_PROBE["format"],
+            "format_name": "mov,mp4",
+            "bit_rate": "123456",
+            "tags": {
+                **_APPLE_PROBE["format"]["tags"],
+                "major_brand": "qt",
+                "encoder": "technical encoder",
+                "tags": '["should not become user tags"]',
+            },
+        },
+        "streams": [
+            {**_APPLE_PROBE["streams"][0], "codec_name": "hevc", "pix_fmt": "yuv420p"},
+            {"codec_type": "audio", "codec_name": "aac", "channels": 2, "sample_rate": "48000"},
+        ],
+    }
+    monkeypatch.setattr(walkdir, "run_ffprobe", lambda path: metadata)
+    video = build_video(str(source), probe=True)
+    assert set(vars(video)) == set(video.to_dict())
+    with SQLiteStore(":memory:") as store:
+        store.save(video)
+        stored = store.get("videos", video.content_hash)
+    assert stored["tags"] == []
+    assert stored["width"] == 3840 and stored["device"] == "Apple iPhone 15 Plus"
+    assert (
+        not {
+            "video_codec",
+            "audio_codec",
+            "channels",
+            "format_name",
+            "bit_rate",
+            "major_brand",
+            "encoder",
+            "raw_metadata",
+            "altitude",
+            "location_accuracy_m",
+            "location_source",
+            "locale_source",
+        }
+        & stored.keys()
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Integration: the walker must actually apply video_meta_strategy when
+# probe=True. Real ffprobe can't read the synthetic test files, so we
+# monkeypatch run_ffprobe to return device/location/resolution-shaped blobs
+# keyed by filename, then assert those fields land on the stored Video rows.
+# --------------------------------------------------------------------------- #
+
+_APPLE_PROBE = {
+    "format": {
+        "duration": "12.34",
+        "tags": {
+            "com.apple.quicktime.make": "Apple",
+            "com.apple.quicktime.model": "iPhone 15 Plus",
+            "com.apple.quicktime.location.ISO6709": "+17.2546+078.6767+509.629/",
+            "com.apple.quicktime.location.accuracy.horizontal": "3.8",
+            "com.apple.quicktime.creationdate": "2024-09-14T11:48:10+0530",
+        },
+    },
+    "streams": [
+        {
+            "codec_type": "video",
+            "width": 3840,
+            "height": 2160,
+            "avg_frame_rate": "30000/1001",
+            "r_frame_rate": "30000/1001",
+            "tags": {"handler_name": "Core Media Video"},
+        }
+    ],
+}
+
+_PIXEL_PROBE = {
+    "format": {
+        "duration": "5.0",
+        "tags": {
+            "com.android.version": "14",
+            "location": "+22.6188+88.4170/",
+            "location-eng": "+22.6188+88.4170/",
+        },
+    },
+    "streams": [
+        {
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080,
+            "avg_frame_rate": "60/1",
+            "r_frame_rate": "60/1",
+            "tags": {},
+        }
+    ],
+}
+
+
+def _fake_ffprobe_factory(paths):
+    """Return a run_ffprobe replacement: Apple blob for the first path (by
+    basename), Pixel blob for a 'PXL_'-named path, else None."""
+    apple_name = os.path.basename(paths[0])
+
+    def fake_run_ffprobe(path, timeout=60):
+        base = os.path.basename(path)
+        if base == apple_name:
+            return _APPLE_PROBE
+        if base.startswith("PXL_"):
+            return _PIXEL_PROBE
+        return None
+
+    return fake_run_ffprobe
+
+
+def test_build_video_probe_applies_strategy(tmp_path, monkeypatch):
+    made = _make_tree(str(tmp_path), n_videos=3)
+    monkeypatch.setattr(walkdir, "run_ffprobe", _fake_ffprobe_factory(made))
+
+    v = build_video(made[0], probe=True)
+    assert v is not None
+    # strategy-derived fields populated through the walker's build path
+    assert v.device == "Apple iPhone 15 Plus"
+    assert v.make == "Apple"
+    assert v.latitude == 17.2546 and v.longitude == 78.6767
+    assert v.width == 3840 and v.height == 2160
+    assert v.fps == pytest.approx(29.97, abs=0.01)
+    assert v.creation_time == "2024-09-14T11:48:10+0530"
+    assert v.duration_sec == pytest.approx(12.34)
+    # filesystem identity still intact alongside the probed metadata
+    assert v.content_hash and v.content_hash.startswith("p:")
+
+
+def test_build_video_probe_false_skips_strategy(tmp_path, monkeypatch):
+    made = _make_tree(str(tmp_path), n_videos=1)
+    # even if ffprobe would return data, probe=False must not touch the strategy
+    monkeypatch.setattr(walkdir, "run_ffprobe", lambda *a, **k: _APPLE_PROBE)
+
+    v = build_video(made[0], probe=False)
+    assert v is not None
+    assert v.device is None
+    assert v.latitude is None and v.longitude is None
+    assert v.width is None and v.height is None and v.fps is None
+
+
+def test_walk_and_store_probe_populates_strategy_fields(tmp_path, monkeypatch):
+    # a Pixel-named file plus generic ones; only the Pixel gets a location blob
+    made = _make_tree(str(tmp_path), n_videos=4)
+    pixel_dir = os.path.dirname(made[0])
+    pixel_path = os.path.join(pixel_dir, "PXL_20240101_101010.mp4")
+    with open(pixel_path, "wb") as f:
+        f.write(b"pixel-unique-payload")
+
+    monkeypatch.setattr(walkdir, "run_ffprobe", _fake_ffprobe_factory(made))
+
+    store = InMemoryStore()
+    saved = walk_and_store(str(tmp_path), store, probe=True)
+    assert saved >= 5
+
+    rows = {r["name"]: r for r in store.all("videos")}
+    pixel = rows["PXL_20240101_101010.mp4"]
+    assert pixel["device"] == "Google Pixel"
+    assert pixel["latitude"] == 22.6188 and pixel["longitude"] == 88.417
+    assert pixel["width"] == 1920 and pixel["height"] == 1080
+    assert pixel["fps"] == pytest.approx(60.0)
+
+    # a non-Apple, non-Pixel file gets no probe data -> strategy fields stay empty
+    apple_name = os.path.basename(made[0])
+    plain = next(r for n, r in rows.items() if n not in (apple_name, "PXL_20240101_101010.mp4"))
+    assert plain["device"] is None
+    assert plain["latitude"] is None
+
+
+@pytest.mark.parametrize("flag", ["--geocode", "--infer-loc"])
+def test_cli_persists_location_index_without_positional_limit(
+    tmp_path, monkeypatch, flag, catalogue_path
+):
+    root = tmp_path / "India"
+    root.mkdir()
+    source = root / "clip.mp4"
+    payload = b"unchanged source video"
+    source.write_bytes(payload)
+    probe = {
+        "format": {"tags": {"location": "+22.6188+88.4170/"} if flag == "--geocode" else {}},
+        "streams": _PIXEL_PROBE["streams"],
+    }
+    monkeypatch.setattr(walkdir, "run_ffprobe", lambda path: probe)
+    monkeypatch.setattr(
+        walkdir,
+        "default_geocoder",
+        lambda: SimpleNamespace(country=lambda latitude, longitude: "India"),
+    )
+    monkeypatch.setattr(
+        walkdir,
+        "default_gazetteer",
+        lambda: SimpleNamespace(
+            lookup=lambda name: (
+                PlaceHit(22.5, 79.0, "India", "country", "India") if name == "india" else None
+            )
+        ),
+    )
+
+    walkdir.main([str(root), flag])
+
+    with SQLiteStore(str(catalogue_path)) as store:
+        rows = store.all("videos")
+    assert len(rows) == 1
+    assert rows[0]["path"] == str(source)
+    assert rows[0]["width"] == 1920
+    assert rows[0]["country"] == "India"
+    expected_coordinates = (22.6188, 88.417) if flag == "--geocode" else (22.5, 79.0)
+    assert (rows[0]["latitude"], rows[0]["longitude"]) == expected_coordinates
+    assert source.read_bytes() == payload
+
+
+def test_cli_preserves_legacy_positional_limit(tmp_path, capsys):
+    _make_tree(str(tmp_path), n_videos=3)
+    walkdir.main([str(tmp_path), "1"])
+    output = capsys.readouterr().out
+    assert "Distinct in store  : 1 " in output
+    assert "video-index.sqlite3" in output
+
+
+def test_index_report_preserves_duplicate_paths_and_directory_counts(tmp_path):
+    root = tmp_path / "source"
+    first, second = root / "drone", root / "mobile"
+    first.mkdir(parents=True)
+    second.mkdir()
+    (first / "original.mp4").write_bytes(b"same footage")
+    (second / "copy.mp4").write_bytes(b"same footage")
+    (second / "unique.mp4").write_bytes(b"different footage")
+    report_path = tmp_path / "reports" / "scan.json"
+
+    result = walkdir.index_videos(str(root), report_path=str(report_path))
+    scan = result["scan"]
+    assert (result["saved"], result["distinct"]) == (3, 2)
+    assert (scan["discovered"], scan["skipped"], scan["duplicates"]) == (3, 0, 1)
+    assert scan["unique_contents"] == 2
+    assert scan["complete"] and not scan["limited"]
+    assert scan["directories"] == [
+        {"directory": str(first), "discovered": 1, "saved": 1, "skipped": 0},
+        {"directory": str(second), "discovered": 2, "saved": 2, "skipped": 0},
+    ]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert {item["path"] for item in report["files"]} == {
+        str(first / "original.mp4"),
+        str(second / "copy.mp4"),
+        str(second / "unique.mp4"),
+    }
+    assert sum(item["duplicate_in_scan"] for item in report["files"]) == 1
+    assert "files" not in scan
+
+
+def test_index_surfaces_unreadable_directory_and_file(tmp_path, monkeypatch):
+    root = tmp_path / "source"
+    denied = root / "denied"
+    denied.mkdir(parents=True)
+    (denied / "hidden.mp4").write_bytes(b"unreadable directory")
+    (root / "good.mp4").write_bytes(b"readable")
+    locked = root / "locked.mp4"
+    locked.write_bytes(b"unreadable file")
+    real_scandir = os.scandir
+    real_hash = walkdir.compute_content_hash
+
+    def scandir(path):
+        if os.fspath(path) == str(denied):
+            raise PermissionError(path)
+        return real_scandir(path)
+
+    def content_hash(path, **kwargs):
+        if path == str(locked):
+            raise PermissionError(path)
+        return real_hash(path, **kwargs)
+
+    monkeypatch.setattr(walkdir.os, "scandir", scandir)
+    monkeypatch.setattr(walkdir, "compute_content_hash", content_hash)
+    report_path = tmp_path / "scan.json"
+    result = walkdir.index_videos(str(root), report_path=str(report_path))
+
+    scan = result["scan"]
+    assert (scan["discovered"], scan["saved"], scan["skipped"]) == (2, 1, 1)
+    assert not scan["complete"]
+    assert scan["error_count"] == 2
+    assert {(e["path"], e["stage"], e["error_type"]) for e in scan["errors"]} == {
+        (str(denied), "scan", "PermissionError"),
+        (str(locked), "read", "PermissionError"),
+    }
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert next(f for f in report["files"] if f["path"] == str(locked))["status"] == "skipped"
+
+
+def test_index_distinguishes_current_scan_from_existing_catalogue(tmp_path):
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "first.mp4").write_bytes(b"first footage")
+    (second / "second.mp4").write_bytes(b"second footage")
+    walkdir.index_videos(str(first))
+    result = walkdir.index_videos(str(second))
+
+    assert (result["saved"], result["distinct"]) == (1, 2)
+    assert result["scan"]["discovered"] == result["scan"]["unique_contents"] == 1
+    assert result["scan"]["directories"] == [
+        {"directory": str(second), "discovered": 1, "saved": 1, "skipped": 0}
+    ]
+
+
+def test_duplicate_catalogue_path_is_stable_across_discovery_order(tmp_path, monkeypatch):
+    paths = [tmp_path / "a.mp4", tmp_path / "b.mp4"]
+    for path in paths:
+        path.write_bytes(b"identical footage")
+    for order in (paths, list(reversed(paths))):
+        monkeypatch.setattr(
+            walkdir,
+            "find_video_paths",
+            lambda *args, order=order, **kwargs: [str(p) for p in order],
+        )
+        store = InMemoryStore()
+        walk_and_store(str(tmp_path), store)
+        assert store.all("videos")[0]["path"] == str(paths[-1])
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_index_rejects_invalid_root_before_creating_database(tmp_path, kind, catalogue_path):
+    root = tmp_path / "source"
+    if kind == "file":
+        root.write_bytes(b"not a directory")
+    expected = FileNotFoundError if kind == "missing" else NotADirectoryError
+    with pytest.raises(expected):
+        walkdir.index_videos(str(root))
+    assert not catalogue_path.exists()
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_index_rejects_nonpositive_limit(tmp_path, limit):
+    with pytest.raises(ValueError, match="positive"):
+        walkdir.index_videos(str(tmp_path), limit=limit)
+
+
+def test_index_does_not_overwrite_existing_report(tmp_path, catalogue_path):
+    report = tmp_path / "scan.json"
+    report.write_text("existing report", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        walkdir.index_videos(str(tmp_path), report_path=str(report))
+    assert report.read_text(encoding="utf-8") == "existing report"
+    assert not catalogue_path.exists()

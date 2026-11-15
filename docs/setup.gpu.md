@@ -1,5 +1,11 @@
 # Thea GPU and System Tool Setup
 
+[Back to Thea](../README.md) | [Developer guide](dev.readme.md)
+
+This preserves the existing setup record; toolchain versions and installation
+commands were not revalidated during the structural migration. GPU probes and
+system installation are explicit setup work, not routine unit validation.
+
 This guide covers only system tools and OpenCV acceleration selection. Python
 project compilation and package installation are handled by
 [`setup.md`](setup.md).

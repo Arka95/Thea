@@ -4,8 +4,8 @@
     {
       "label": "Run Fast Tests",
       "type": "shell",
-      "command": "pytest",
-      "args": ["tests/fast", "-v"],
+      "command": "python",
+      "args": ["-m", "pytest", "-v"],
       "problemMatcher": ["$pytest"],
       "group": {
         "kind": "test",
@@ -13,46 +13,46 @@
       }
     },
     {
-      "label": "Run All Tests",
+      "label": "Run Integration Tests (opt-in)",
       "type": "shell",
-      "command": "pytest",
-      "args": ["tests", "tools/tests", "-v", "--tb=short"],
+      "command": "python",
+      "args": ["-m", "pytest", "src\\integration_tests", "-v", "--tb=short"],
       "problemMatcher": ["$pytest"],
       "group": "test"
     },
     {
       "label": "Lint with Ruff",
       "type": "shell",
-      "command": "ruff",
-      "args": ["check", ".", "--fix"],
+      "command": "python",
+      "args": ["-m", "ruff", "check", "src", "scripts"],
       "problemMatcher": []
     },
     {
       "label": "Format with Black",
       "type": "shell",
-      "command": "black",
-      "args": [".", "--line-length", "100"],
+      "command": "python",
+      "args": ["-m", "black", "src", "scripts", "--line-length", "100"],
       "problemMatcher": []
     },
     {
       "label": "Type Check",
       "type": "shell",
       "command": "python",
-      "args": ["-m", "mypy", ".", "--ignore-missing-imports"],
+      "args": ["-m", "mypy", "src", "scripts", "--ignore-missing-imports"],
       "problemMatcher": []
     },
     {
       "label": "Security Audit (Bandit)",
       "type": "shell",
-      "command": "bandit",
-      "args": ["-r", ".", "-ll"],
+      "command": "python",
+      "args": ["-m", "bandit", "-r", "src", "scripts", "-ll"],
       "problemMatcher": []
     },
     {
       "label": "Run Main Pipeline",
       "type": "shell",
       "command": "python",
-      "args": ["main.py"],
+      "args": ["-m", "main"],
       "problemMatcher": [],
       "group": {
         "kind": "build",
