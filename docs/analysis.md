@@ -14,6 +14,17 @@ availability and model performance have not been measured for this research.
 
 ## 1. What Thea currently uses
 
+Catalogue operations share configured `data_dir\video-index.sqlite3`.
+
+| Catalogue decision | Why chosen / tradeoff | Configuration and evidence |
+|--------------------|-----------------------|----------------------------|
+| One persistent SQLite catalogue | Prevents per-run fragmentation; local single-writer storage is sufficient. No distributed availability claim | `data_dir`; [resolver](../src/utils/settings.py), [catalogue](../src/tools/catalogue.py) |
+| Description on the content record | Reindex preserves captions for unchanged hashes; changed content cannot inherit the prior description. Partial signatures still have collision risk | [Video](../src/tools/models/video.py), [merge tests](../src/tools/tests/test_catalogue.py) |
+| Weighted text search, not embeddings | No extra model/index lifecycle; parameterized bounded queries. Substrings/synonym lists are less expressive than semantic retrieval and scan text | [Search](../src/tools/catalogue.py), `limit` 1-100; at most eight meaningful terms |
+| Offline approximate locale enrichment | Reuses existing country/state data without downloads; folder names and nearest-city lookups are not GPS proof. Provenance is not persisted | [Locale implementation](../src/tools/catalogue.py), [gazetteer](../src/tools/geocoding.py) |
+| Lean catalogue with user tags | Only organizing fields are retained; technical probe data is deliberately discarded. Tags use JSON arrays rather than separate file-tag columns | [Video/schema](../src/tools/models/video.py), [atomic migration](../src/tools/catalogue.py), [migration tests](../src/tools/tests/test_catalogue.py) |
+| One recording-time field | Embedded timestamp first, filesystem creation time only as fallback; copied files can have misleading fallback dates. No filesystem modification-time fallback | `creation_time`; [record construction](../src/tools/walkdir.py), [embedded extraction](../src/tools/video_meta_strategy.py) |
+
 | Video task | Algorithm or model actually used | Evidence and important boundary |
 |------------|----------------------------------|---------------------------------|
 | Motion estimation | Classical dense Farneback optical flow, OpenCV CUDA or CPU | [Flow calculators](../src/motion_assessment/optical_flow.py#L42); no trained checkpoint or neural optical-flow model |

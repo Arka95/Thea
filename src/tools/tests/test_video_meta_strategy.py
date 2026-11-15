@@ -5,8 +5,6 @@ Uses synthetic ffprobe-shaped dicts modelled on real D:\\ samples (Apple, Pixel,
 GoPro, DJI, Samsung, LG/other-Android) so no real files are needed.
 """
 
-
-
 import pytest
 
 from tools.models.video import Video
@@ -28,17 +26,27 @@ def probe(fmt_tags=None, streams=None, duration=None):
 
 
 def vstream(w=1920, h=1080, avg="30000/1001", r="30000/1001", tags=None):
-    return {"codec_type": "video", "width": w, "height": h,
-            "avg_frame_rate": avg, "r_frame_rate": r, "tags": tags or {}}
+    return {
+        "codec_type": "video",
+        "width": w,
+        "height": h,
+        "avg_frame_rate": avg,
+        "r_frame_rate": r,
+        "tags": tags or {},
+    }
 
 
 # --------------------------- device detection ----------------------------- #
 
+
 def test_device_apple():
-    p = probe(fmt_tags={
-        "com.apple.quicktime.make": "Apple",
-        "com.apple.quicktime.model": "iPhone 15 Plus",
-    }, streams=[vstream(tags={"handler_name": "Core Media Video", "encoder": "HEVC"})])
+    p = probe(
+        fmt_tags={
+            "com.apple.quicktime.make": "Apple",
+            "com.apple.quicktime.model": "iPhone 15 Plus",
+        },
+        streams=[vstream(tags={"handler_name": "Core Media Video", "encoder": "HEVC"})],
+    )
     d = detect_device(build_context(p, "IMG_6324.MOV"))
     assert d.make == "Apple"
     assert d.model == "iPhone 15 Plus"
@@ -46,7 +54,9 @@ def test_device_apple():
 
 
 def test_device_gopro_by_handler():
-    p = probe(streams=[vstream(tags={"handler_name": "GoPro H.265", "encoder": "GoPro H.265 encoder"})])
+    p = probe(
+        streams=[vstream(tags={"handler_name": "GoPro H.265", "encoder": "GoPro H.265 encoder"})]
+    )
     d = detect_device(build_context(p, "GX010939.MP4"))
     assert d.device == "GoPro"
 
@@ -103,19 +113,27 @@ def test_device_unknown():
 
 def test_device_priority_apple_beats_filename():
     # Apple tags present but filename looks like GoPro -> Apple wins (higher priority)
-    p = probe(fmt_tags={"com.apple.quicktime.make": "Apple",
-                        "com.apple.quicktime.model": "iPhone 13"})
+    p = probe(
+        fmt_tags={"com.apple.quicktime.make": "Apple", "com.apple.quicktime.model": "iPhone 13"}
+    )
     d = detect_device(build_context(p, "GX010001.mp4"))
     assert d.make == "Apple"
 
 
 # --------------------------- location extraction -------------------------- #
 
+
 def test_parse_iso6709_variants():
     assert parse_iso6709("+22.6188+88.4170/") == {
-        "latitude": 22.6188, "longitude": 88.417, "altitude": None}
+        "latitude": 22.6188,
+        "longitude": 88.417,
+        "altitude": None,
+    }
     assert parse_iso6709("+17.2546+078.6767+509.629/") == {
-        "latitude": 17.2546, "longitude": 78.6767, "altitude": 509.629}
+        "latitude": 17.2546,
+        "longitude": 78.6767,
+        "altitude": 509.629,
+    }
     assert parse_iso6709("-33.8568+151.2153/")["latitude"] == -33.8568
     assert parse_iso6709(None) is None
     assert parse_iso6709("garbage") is None
@@ -150,10 +168,12 @@ def test_parse_iso6709_preserves_valid_boundary_coordinates(value, latitude, lon
 
 
 def test_location_apple_with_altitude_and_accuracy():
-    p = probe(fmt_tags={
-        "com.apple.quicktime.location.ISO6709": "+17.2546+078.6767+509.629/",
-        "com.apple.quicktime.location.accuracy.horizontal": "4.683887",
-    })
+    p = probe(
+        fmt_tags={
+            "com.apple.quicktime.location.ISO6709": "+17.2546+078.6767+509.629/",
+            "com.apple.quicktime.location.accuracy.horizontal": "4.683887",
+        }
+    )
     loc = extract_location(build_context(p, "IMG.MOV"))
     assert loc.latitude == 17.2546
     assert loc.longitude == 78.6767
@@ -178,6 +198,7 @@ def test_location_absent():
 
 # --------------------------- resolution / fps ----------------------------- #
 
+
 def test_resolution_and_fps():
     p = probe(streams=[vstream(w=3840, h=2160, avg="30000/1001", r="30000/1001")])
     res = extract_resolution_fps(build_context(p, "4k.mp4"))
@@ -200,6 +221,7 @@ def test_fps_handles_zero_rate():
 
 # --------------------------- full populate -------------------------------- #
 
+
 def test_populate_video_end_to_end():
     p = probe(
         fmt_tags={
@@ -217,8 +239,7 @@ def test_populate_video_end_to_end():
 
     assert v.device == "Apple iPhone 15 Plus"
     assert v.make == "Apple"
-    assert v.latitude == 17.2546 and v.longitude == 78.6767 and v.altitude == 509.629
-    assert v.location_accuracy_m == pytest.approx(3.8)
+    assert v.latitude == 17.2546 and v.longitude == 78.6767
     assert v.location == "+17.2546+078.6767+509.629/"
     assert v.width == 3840 and v.height == 2160
     assert v.creation_time == "2024-09-14T11:48:10+0530"
@@ -226,6 +247,7 @@ def test_populate_video_end_to_end():
 
 
 # --------------------------- geocoding wiring ----------------------------- #
+
 
 class _FakeGeocoder:
     """Records calls; returns a fixed country without loading any dataset."""
@@ -297,17 +319,16 @@ def test_path_fallback_infers_country_from_folder():
     populate_video(v, probe(), place_gazetteer=gaz)  # empty probe -> no GPS
     assert v.latitude == 38.9 and v.longitude == 23.2
     assert v.country == "Greece"
-    assert v.location_source == "path:country:Greece"
+    assert v.location is None
 
 
 def test_path_fallback_state_sets_parent_country():
-    gaz = _FakeGazetteer(
-        {"west bengal": PlaceHit(23.49, 88.12, "India", "state", "West Bengal")})
+    gaz = _FakeGazetteer({"west bengal": PlaceHit(23.49, 88.12, "India", "state", "West Bengal")})
     v = Video(path="D:/India/West Bengal/clip.mp4", name="clip.mp4")
     populate_video(v, probe(), place_gazetteer=gaz)
     assert (v.latitude, v.longitude) == (23.49, 88.12)
     assert v.country == "India"
-    assert v.location_source == "path:state:West Bengal"
+    assert v.state == "West Bengal"
 
 
 def test_gps_location_beats_path_fallback():
@@ -316,7 +337,7 @@ def test_gps_location_beats_path_fallback():
     v = Video(path="D:/Greece/clip.mp4", name="clip.mp4")
     populate_video(v, p, place_gazetteer=gaz)
     assert v.latitude == 12.9716  # GPS wins, not the centroid
-    assert v.location_source == "android"
+    assert v.location == "+12.9716+077.5946/"
     assert gaz.calls == []  # path fallback never consulted when GPS exists
 
 
@@ -338,7 +359,7 @@ def test_unusable_gps_allows_labelled_folder_fallback(tag, value):
     )
     assert video.country == "Greece"
     assert (video.latitude, video.longitude) == (38.9, 23.2)
-    assert video.location_source == "path:country:Greece"
+    assert video.location is None
     assert geocoder.calls == []
 
 
@@ -347,11 +368,11 @@ def test_path_fallback_no_match_leaves_location_empty():
     v = Video(path="D:/RandomFolder/holiday/clip.mp4", name="clip.mp4")
     populate_video(v, probe(), place_gazetteer=gaz)
     assert v.latitude is None and v.country is None
-    assert v.location_source is None
+    assert v.location is None
 
 
 def test_no_gazetteer_means_no_path_inference():
     v = Video(path="D:/Greece/clip.mp4", name="clip.mp4")
     populate_video(v, probe())  # no gazetteer
     assert v.latitude is None and v.country is None
-    assert v.location_source is None
+    assert v.location is None

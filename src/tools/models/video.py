@@ -1,12 +1,9 @@
 """
 tools/models/video.py — ``Video`` model, an :class:`IStorable`.
 
-Field selection was driven by a real scan of 999 videos under ``D:\\`` (see
-``scripts/explore_metadata.py``). The columns below are the de-duplicated union of
-metadata that videos actually carry, grouped into: filesystem identity, container
-/ format, stream counts, primary video stream, primary audio stream, and common
-container tags. ``raw_metadata`` is a catch-all JSON blob so nothing probed is
-ever lost.
+Only organizing metadata is persisted. Codec, audio, container and unselected
+probe fields are ignored. ``tags`` is a user-managed array, not a copy of file
+metadata tags.
 
 Primary-key strategy
 --------------------
@@ -29,6 +26,7 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass, field, fields
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
 from tools.storage.interfaces import IStorable
@@ -64,23 +62,22 @@ class Video(IStorable):
     extension: Optional[str] = None
     size_bytes: Optional[int] = None
 
-    # -- when it was shot: prefer creation_time (embedded), fall back to modified_time --
-    creation_time: Optional[str] = None        # embedded recording timestamp (container tag)
-    modified_time: Optional[float] = None       # filesystem mtime — fallback date
+    # Embedded recording time first; filesystem creation time is the fallback.
+    creation_time: Optional[str] = None
 
     # -- capture device (derived; see tools/video_meta_strategy.py) --
-    device: Optional[str] = None                # unified label, e.g. "Apple iPhone 15 Plus", "GoPro", "DJI"
+    device: Optional[str] = None  # unified label, e.g. "Apple iPhone 15 Plus", "GoPro", "DJI"
     make: Optional[str] = None
     model: Optional[str] = None
 
     # -- location: parse ISO-6709 into queryable numbers; raw kept in `location` --
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    altitude: Optional[float] = None
-    location_accuracy_m: Optional[float] = None
-    location: Optional[str] = None              # raw ISO-6709 string (audit/provenance)
-    location_source: Optional[str] = None       # how location was derived: "apple"/"android"/"path:..."
-    country: Optional[str] = None               # reverse-geocoded from lat/lon (see tools/geocoding.py)
+    location: Optional[str] = None  # raw ISO-6709 string (audit/provenance)
+    country: Optional[str] = None  # reverse-geocoded from lat/lon (see tools/geocoding.py)
+    state: str | None = None
+    description: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     # -- resolution / frame rate / duration --
     width: Optional[int] = None
@@ -88,69 +85,9 @@ class Video(IStorable):
     fps: Optional[float] = None
     duration_sec: Optional[float] = None
 
-    # -------------------------------------------------------------------------
-    # IRRELEVANT for organizing by year/month, directory, name, location or
-    # device. These are deep container / codec / stream technicals kept only for
-    # completeness and audit — safe to drop for a lean row.
-    # -------------------------------------------------------------------------
-
-    created_time: Optional[float] = None        # filesystem ctime — UNRELIABLE (reset on copy/move)
-
-    # -- container / format --
-    format_name: Optional[str] = None
-    format_long_name: Optional[str] = None
-    bit_rate: Optional[int] = None
-    nb_streams: Optional[int] = None
-    start_time: Optional[float] = None
-    probe_score: Optional[int] = None
-
-    # -- stream counts --
-    video_stream_count: Optional[int] = None
-    audio_stream_count: Optional[int] = None
-    subtitle_stream_count: Optional[int] = None
-    data_stream_count: Optional[int] = None
-
-    # -- primary video stream (technical) --
-    video_codec: Optional[str] = None
-    video_codec_long: Optional[str] = None
-    video_profile: Optional[str] = None
-    coded_width: Optional[int] = None
-    coded_height: Optional[int] = None
-    pix_fmt: Optional[str] = None
-    level: Optional[int] = None
-    video_bit_rate: Optional[int] = None
-    avg_frame_rate: Optional[str] = None
-    r_frame_rate: Optional[str] = None
-    nb_frames: Optional[int] = None
-    has_b_frames: Optional[int] = None
-    sample_aspect_ratio: Optional[str] = None
-    display_aspect_ratio: Optional[str] = None
-    color_range: Optional[str] = None
-    color_space: Optional[str] = None
-    color_transfer: Optional[str] = None
-    color_primaries: Optional[str] = None
-    field_order: Optional[str] = None
-    bits_per_raw_sample: Optional[int] = None
-
-    # -- primary audio stream --
-    audio_codec: Optional[str] = None
-    audio_codec_long: Optional[str] = None
-    audio_profile: Optional[str] = None
-    sample_rate: Optional[int] = None
-    channels: Optional[int] = None
-    channel_layout: Optional[str] = None
-    sample_fmt: Optional[str] = None
-    audio_bit_rate: Optional[int] = None
-    audio_bits_per_sample: Optional[int] = None
-
-    # -- other container tags --
-    major_brand: Optional[str] = None
-    encoder: Optional[str] = None
-    android_version: Optional[str] = None
-    capture_fps: Optional[str] = None
-
-    # -- catch-all: full probed metadata as JSON (nothing lost) --
-    raw_metadata: Optional[Dict[str, Any]] = None
+    def __post_init__(self) -> None:
+        if not isinstance(self.tags, list) or any(not isinstance(tag, str) for tag in self.tags):
+            raise TypeError("tags must be an array of strings")
 
     # -- IStorable contract ----------------------------------------------------
 
@@ -168,8 +105,7 @@ class Video(IStorable):
         Covers the organizing axes: name, directory, location (lat/lon +
         reverse-geocoded country), capture date (creation_time) and device.
         """
-        return ["name", "directory", "latitude", "longitude", "country",
-                "creation_time", "device"]
+        return ["name", "directory", "latitude", "longitude", "country", "creation_time", "device"]
 
     def unique_fields(self):
         """``path`` is the natural key: a full file path is unique per file."""
@@ -177,13 +113,13 @@ class Video(IStorable):
 
     def to_dict(self) -> Dict[str, Any]:
         """Flat mapping of all fields (``None`` values included)."""
+        self.__post_init__()
         return asdict(self)
 
     def __str__(self) -> str:
         res = f"{self.width}x{self.height}" if self.width and self.height else "?"
         dur = f"{self.duration_sec:.1f}s" if self.duration_sec else "?"
-        codec = self.video_codec or "?"
-        return f"Video(name={self.name!r}, {res}, {codec}, {dur}, hash={self.content_hash})"
+        return f"Video(name={self.name!r}, {res}, {dur}, hash={self.content_hash})"
 
     # -- construction helpers --------------------------------------------------
 
@@ -191,7 +127,16 @@ class Video(IStorable):
     def from_dict(cls, data: Dict[str, Any]) -> "Video":
         """Rebuild a :class:`Video` from a stored row, ignoring unknown keys."""
         known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in known})
+        values = {k: v for k, v in data.items() if k in known}
+        if not values.get("creation_time") and data.get("created_time") is not None:
+            values["creation_time"] = datetime.fromtimestamp(
+                float(data["created_time"]), UTC
+            ).isoformat()
+        tags = values.get("tags")
+        values["tags"] = (
+            json.loads(tags) if isinstance(tags, str) else tags if tags is not None else []
+        )
+        return cls(**values)
 
 
 def compute_content_hash(path: str, algorithm: str = "sha256", partial: bool = False) -> str:

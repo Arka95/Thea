@@ -25,11 +25,8 @@ def make_video(idx: int = 0, content_hash: str = None) -> Video:
         width=1920,
         height=1080,
         fps=29.97,
-        video_codec="h264",
-        audio_codec="aac",
-        channels=2,
         creation_time="2026-01-01T00:00:00.000000Z",
-        raw_metadata={"format": {"nb_streams": 2}, "streams": [{"index": 0}]},
+        tags=["travel", "monastery"],
     )
 
 
@@ -72,13 +69,13 @@ class TestSQLiteRoundTrip:
         restored = Video.from_dict(row)
         assert restored == original
 
-    def test_raw_metadata_json_roundtrip(self):
+    def test_tags_json_roundtrip(self):
         store = SQLiteStore(":memory:")
         v = make_video(7)
         store.save(v)
         row = store.get("videos", v.content_hash)
-        assert row["raw_metadata"] == {"format": {"nb_streams": 2}, "streams": [{"index": 0}]}
-        assert isinstance(row["raw_metadata"], dict)
+        assert row["tags"] == ["travel", "monastery"]
+        assert isinstance(row["tags"], list)
         store.close()
 
     def test_upsert_by_primary_key(self):
@@ -140,9 +137,7 @@ class TestSQLiteRoundTrip:
 class TestSQLiteIndexing:
     def _indexes(self, store):
         """Map index name -> (is_unique, indexed_column) from the live db."""
-        cur = store._conn.execute(
-            "SELECT name, \"unique\" FROM pragma_index_list('videos')"
-        )
+        cur = store._conn.execute("SELECT name, \"unique\" FROM pragma_index_list('videos')")
         out = {}
         for row in cur.fetchall():
             cols = store._conn.execute(
@@ -155,8 +150,15 @@ class TestSQLiteIndexing:
         store = SQLiteStore(":memory:")
         store.save(make_video(1))
         idx = self._indexes(store)
-        for field in ("name", "directory", "latitude", "longitude", "country",
-                      "creation_time", "device"):
+        for field in (
+            "name",
+            "directory",
+            "latitude",
+            "longitude",
+            "country",
+            "creation_time",
+            "device",
+        ):
             name = f"idx_videos_{field}"
             assert name in idx, f"missing index for {field}"
             is_unique, cols = idx[name]

@@ -27,24 +27,28 @@ Usage:
     print(report)
 """
 
-import time
-import threading
 import functools
 import logging
-from dataclasses import dataclass, field, asdict
-from typing import Optional, Callable
+import threading
+import time
+from collections import deque
+from contextlib import suppress
+from dataclasses import asdict, dataclass, field
+from typing import Callable, Optional
 
 logger = logging.getLogger("thea.metrics")
+MAX_METRIC_RECORDS = 2048
 
 
 @dataclass
 class MetricRecord:
     """A single function execution metric."""
+
     function: str
     module: str
-    status: str              # "success" | "error"
+    status: str  # "success" | "error"
     duration_sec: float
-    timestamp_start: float   # time.time() epoch
+    timestamp_start: float  # time.time() epoch
     error: Optional[str] = None
     context: dict = field(default_factory=dict)
 
@@ -66,7 +70,7 @@ class MetricsCollector:
     """
 
     def __init__(self):
-        self._records: list = []
+        self._records = deque(maxlen=MAX_METRIC_RECORDS)
         self._lock = threading.Lock()
 
     def record(self, metric: MetricRecord):
@@ -108,7 +112,13 @@ class MetricsCollector:
             records = list(self._records)
 
         if not records:
-            return {"total_functions": 0, "total_duration_sec": 0, "success_count": 0, "error_count": 0, "functions": {}}
+            return {
+                "total_functions": 0,
+                "total_duration_sec": 0,
+                "success_count": 0,
+                "error_count": 0,
+                "functions": {},
+            }
 
         # Aggregate per function
         funcs = {}
@@ -157,8 +167,10 @@ class MetricsCollector:
                 f"{data['avg_ms']:>9.2f} {data['min_ms']:>9.2f} {data['max_ms']:>9.2f} {data['errors']:>7}"
             )
         lines.append("-" * 85)
-        lines.append(f"Total: {s['total_functions']} calls, {s['total_duration_sec']:.3f}s, "
-                     f"{s['error_count']} errors")
+        lines.append(
+            f"Function span sum (not elapsed wall time): {s['total_functions']} calls, {s['total_duration_sec']:.3f}s, "
+            f"{s['error_count']} errors"
+        )
         return "\n".join(lines)
 
 
@@ -179,9 +191,17 @@ def reset_default_collector():
     _default_collector.clear()
 
 
+def log_default_metrics():
+    """Emit the current process summary without affecting the command result."""
+    with suppress(Exception):
+        if _default_collector.records:
+            logger.info("\n%s", _default_collector.report_table())
+
+
 # ---------------------------------------------------------------------------
 # Decorator
 # ---------------------------------------------------------------------------
+
 
 def track(collector: MetricsCollector = None, context_fn: Callable = None):
     """Decorator to track execution time and status of a function.
@@ -199,6 +219,7 @@ def track(collector: MetricsCollector = None, context_fn: Callable = None):
         def process_video(path, config):
             ...
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -210,47 +231,46 @@ def track(collector: MetricsCollector = None, context_fn: Callable = None):
             # Gather context
             ctx = {}
             if context_fn:
-                try:
+                with suppress(Exception):
                     ctx = context_fn(args, kwargs) or {}
-                except Exception:
-                    pass
 
             t_start = time.time()
             t_perf = time.perf_counter()
 
+            status, error_type = "success", None
             try:
-                result = func(*args, **kwargs)
-                duration = time.perf_counter() - t_perf
-
-                metric = MetricRecord(
-                    function=func_name,
-                    module=module,
-                    status="success",
-                    duration_sec=duration,
-                    timestamp_start=t_start,
-                    context=ctx,
-                )
-                coll.record(metric)
-
-                logger.debug(f"{func_name} completed in {duration*1000:.1f}ms")
-                return result
-
-            except Exception as e:
-                duration = time.perf_counter() - t_perf
-
-                metric = MetricRecord(
-                    function=func_name,
-                    module=module,
-                    status="error",
-                    duration_sec=duration,
-                    timestamp_start=t_start,
-                    error=f"{type(e).__name__}: {e}",
-                    context=ctx,
-                )
-                coll.record(metric)
-
-                logger.error(f"{func_name} failed after {duration*1000:.1f}ms: {type(e).__name__}: {e}")
+                return func(*args, **kwargs)
+            except BaseException as error:
+                status, error_type = "error", type(error).__name__
                 raise
+            finally:
+                duration = time.perf_counter() - t_perf
+                with suppress(Exception):
+                    coll.record(
+                        MetricRecord(
+                            function=func_name,
+                            module=module,
+                            status=status,
+                            duration_sec=duration,
+                            timestamp_start=t_start,
+                            error=error_type,
+                            context=ctx,
+                        )
+                    )
+                    level = (
+                        logging.ERROR
+                        if error_type
+                        else (logging.INFO if ctx.get("operation") else logging.DEBUG)
+                    )
+                    logger.log(
+                        level,
+                        "operation=%s outcome=%s duration_sec=%.4f error_type=%s",
+                        ctx.get("operation", func_name),
+                        status,
+                        duration,
+                        error_type,
+                    )
 
         return wrapper
+
     return decorator

@@ -61,6 +61,7 @@ class OfflineReverseGeocoder(Geocoder):
         try:
             import reverse_geocoder
             import pycountry
+
             self._rg = reverse_geocoder
             self._pycountry = pycountry
         except Exception:
@@ -123,9 +124,9 @@ class PlaceHit:
 
     latitude: float
     longitude: float
-    country: Optional[str]   # country name (for a state hit, its parent country)
-    kind: str                # "country" or "state"
-    matched: str             # the name that matched
+    country: Optional[str]  # country name (for a state hit, its parent country)
+    kind: str  # "country" or "state"
+    matched: str  # the name that matched
 
 
 class PlaceGazetteer(ABC):
@@ -204,10 +205,15 @@ class OfflinePlaceGazetteer(PlaceGazetteer):
             centroid = centroids.get(country.alpha_2)
             if centroid is None:
                 continue
-            hit = PlaceHit(round(centroid[0], 4), round(centroid[1], 4),
-                           country.name, "country", country.name)
-            names = [country.name, getattr(country, "common_name", None),
-                     getattr(country, "official_name", None), country.alpha_3]
+            hit = PlaceHit(
+                round(centroid[0], 4), round(centroid[1], 4), country.name, "country", country.name
+            )
+            names = [
+                country.name,
+                getattr(country, "common_name", None),
+                getattr(country, "official_name", None),
+                country.alpha_3,
+            ]
             for raw in names:
                 if not raw:
                     continue
@@ -225,8 +231,11 @@ class OfflinePlaceGazetteer(PlaceGazetteer):
                 match = pycountry.countries.get(alpha_2=top_cc)
                 country_name = match.name if match is not None else None
             self._states[name] = PlaceHit(
-                round(acc[0] / acc[2], 4), round(acc[1] / acc[2], 4),
-                country_name, "state", name,
+                round(acc[0] / acc[2], 4),
+                round(acc[1] / acc[2], 4),
+                country_name,
+                "state",
+                name,
             )
 
     def lookup(self, name: str) -> Optional[PlaceHit]:
@@ -236,7 +245,14 @@ class OfflinePlaceGazetteer(PlaceGazetteer):
             return None
         key = name.strip().lower()
         # Countries take precedence over like-named states (e.g. "Georgia").
-        return self._countries.get(key) or self._states.get(key)
+        exact = self._countries.get(key) or self._states.get(key)
+        if exact is not None:
+            return exact
+        if len(key) >= 5:
+            matches = [hit for state, hit in self._states.items() if state.startswith(key + " ")]
+            if len(matches) == 1:
+                return matches[0]
+        return None
 
 
 _DEFAULT_GAZETTEER: Optional[PlaceGazetteer] = None

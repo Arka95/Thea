@@ -3,8 +3,6 @@ tools/tests/test_memory_store.py — Tests for the in-memory dict store, and
 interchangeability with the SQLite store via the IStore interface.
 """
 
-
-
 import pytest
 
 from tools.models.video import Video
@@ -20,7 +18,7 @@ def make_video(idx: int) -> Video:
         content_hash=f"hash{idx:04d}",
         width=1280,
         height=720,
-        video_codec="hevc",
+        tags=["travel"],
     )
 
 

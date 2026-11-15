@@ -13,7 +13,7 @@ def run(command, **arguments):
     from mcp.server.mcpserver.exceptions import ToolError
 
     from main import run_command
-    from utils.metrics import reset_default_collector
+    from utils.metrics import log_default_metrics, reset_default_collector
 
     with _operation_lock:
         reset_default_collector()
@@ -21,6 +21,8 @@ def run(command, **arguments):
             return run_command(command, **arguments)
         except (ValueError, FileNotFoundError, FileExistsError) as error:
             raise ToolError(str(error)) from error
+        finally:
+            log_default_metrics()
 
 
 def create_server():
@@ -149,20 +151,30 @@ def create_server():
         timestamp_in_metadata: bool = False,
         context: str | None = None,
     ) -> dict[str, Any]:
-        """Caption sampled frames through an existing vision endpoint. CLI: thea caption PATH --model MODEL."""
+        """Caption a file/directory, using indexed locale, into videos.description. CLI: thea caption PATH --model MODEL."""
         return run("caption", **locals())
 
     @server.tool()
     def index(
         root: str = "D:\\",
         limit: int | None = None,
-        db: str | None = None,
         probe: bool = False,
         geocode: bool = False,
         infer_loc: bool = False,
+        report_path: str | None = None,
     ) -> dict[str, Any]:
-        """Index metadata. CLI: thea index ROOT [LIMIT] or thea-index; pass root explicitly."""
+        """Index metadata with scan counts and an optional audit. CLI: thea index ROOT [LIMIT] --report-path NEW.json."""
         return run("index", **locals())
+
+    @server.tool()
+    def importindex(paths: list[str]) -> dict[str, Any]:
+        """Merge read-only old catalogues into the configured index. CLI: thea importindex DB [DB ...]."""
+        return run("importindex", **locals())
+
+    @server.tool()
+    def search(query: str, limit: int = 20) -> dict[str, Any]:
+        """Find ranked video paths using descriptions and locale/device/path metadata. CLI: thea search QUERY."""
+        return run("search", **locals())
 
     return server
 

@@ -54,12 +54,16 @@ is reserved for MCP. Filesystem paths refer to the server's machine.
 | `ratiocrop` | `thea ratiocrop PATH RATIOX RATIOY` | `path`, `ratiox`, `ratioy`, `output_path` |
 | `pan` | `thea pan PATH` | `path`, `resolutionx`, `resolutiony`, `ratiox`, `ratioy`, `startx`, `starty`, `endx`, `endy`, `duration`, `output_path` |
 | `caption` | `thea caption PATH --model MODEL` | `path`, `model`, `base_url`, `api_key_env`, `timeout_sec`, `contact_sheet`, `sampling_video`, `sample_count`, `frame_width`, `frame_height`, `columns`, `location_in_metadata`, `timestamp_in_metadata`, `context` |
-| `index` | `thea index` / `thea-index` | `root`, `limit`, `db`, `probe`, `geocode`, `infer_loc` |
+| `index` | `thea index` / `thea-index` | `root`, `limit`, `report_path`, `probe`, `geocode`, `infer_loc` |
+| `importindex` | `thea importindex DB [DB ...]` | `paths` |
+| `search` | `thea search QUERY` | `query`, `limit` |
 
 CLI hyphens become underscores in MCP parameter names. Defaults match the CLI.
 `output` means a directory for downscale/slice/pipeline but a batch-report format
 (`csv`/`pkl`) for analyze. A custom `config` overrides `preset`.
 Pass an explicit indexing `root`; the legacy default remains `D:\`.
+All catalogue tools use configured `data_dir\video-index.sqlite3`, never a
+tool-specific database. The former `db` parameter is intentionally retired.
 
 ## Examples
 
@@ -91,6 +95,29 @@ The endpoint must already serve the selected image-capable model. Set
 or name another variable with `api_key_env`. The result includes the caption,
 model, contact-sheet path and sampling metadata. Existing contact sheets are
 not overwritten by this command.
+Default intermediate images are cleaned by the core captioner, including on
+failure; their returned `sample.image_path` is null. An explicit `contact_sheet`
+path requests retention.
+Successful captions populate `videos.description`, using indexed country/state
+as prompt context. Folder-derived locale remains approximate. A directory
+`path` enables recursive native batching; inspect `complete` and per-file
+`errors`, not just MCP `is_error`. Existing descriptions survive failed inference.
+
+Call tool `search` with:
+
+```json
+{"query": "drone footage in Arunachal for nature", "limit": 10}
+```
+
+Results contain every retained record field, including array-valued `tags` and
+the single `creation_time`, plus computed `score` and `exists`;
+no symlink privileges are needed. Relevance comes from indexed text/metadata,
+not new visual inference. `importindex({"paths": ["E:\\Thea\\old.sqlite3"]})`
+merges a legacy store read-only into the canonical destination.
+Writable catalogue tools migrate retired technical/provenance/timestamp columns
+automatically; the `index` result's `schema` reports physical columns, removals
+and counts before indexing. Search remains read-only. See the
+[stored metadata contract](../tools/README.md#stored-metadata).
 
 ## Results and failures
 
@@ -100,6 +127,10 @@ Motion analysis returns statistics/windows rather than per-frame score arrays.
 Batch analysis reports its saved file and compact results; pipeline returns
 source, analysis copy, clips, windows and metadata per input.
 Index returns save-attempt/distinct counts and up to eight sample records.
+Its `scan` separates current-run discovery, skips, duplicate signatures,
+per-folder counts and scan/read errors from the whole catalogue's distinct
+contents. Pass `report_path` for a new JSON containing every discovered path
+and all errors; see [count audits](../tools/README.md#count-audits).
 
 Check `is_error` before using a result. Expected path/argument errors provide
 actionable messages. Existing processing behavior, including legacy output

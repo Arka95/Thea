@@ -13,7 +13,7 @@ Commands:
     python -m main ratiocrop <path> <ratiox> <ratioy> [--output-path FILE]
     python -m main pan <path> [--duration SECONDS] [--output-path FILE]
     python -m main caption <path> --model MODEL [--contact-sheet FILE]
-    python -m main index [ROOT] [LIMIT] [--db FILE]
+    python -m main index [ROOT] [LIMIT]
 
 Path can be a single video file (single mode) or a directory (batch mode).
 """
@@ -34,9 +34,11 @@ from cli.commands import (
     cmd_caption,
     cmd_centercrop,
     cmd_crop,
+    cmd_importindex,
     cmd_index,
     cmd_pan,
     cmd_ratiocrop,
+    cmd_search,
     print_result,
 )
 from downscaler.downscaler import batch_downscale, downscale_video
@@ -47,7 +49,7 @@ from slicer.slicer import slice_video
 from tools.walkdir import add_index_arguments
 from utils.config_loader import list_presets, load_config_file, load_preset
 from utils.hardware import detect_hardware
-from utils.metrics import get_default_collector, reset_default_collector
+from utils.metrics import log_default_metrics, reset_default_collector, track
 from utils.pipeline_logger import log_pipeline_stats, log_video_meta
 from utils.settings import (
     DOWNSAMPLED_DIR,
@@ -583,7 +585,7 @@ Examples:
 
     for name in ("crop", "centercrop", "ratiocrop", "pan"):
         p = subparsers.add_parser(name, help=f"{name.capitalize()} one source video")
-        p.add_argument("path", help="Source video file")
+        p.add_argument("path", help="Source video file or directory")
         p.add_argument("--output-path", help="Output file (default: data_dir/cropandpan)")
         if name in {"crop", "centercrop"}:
             p.add_argument("width", type=int, help="Crop width in pixels")
@@ -616,7 +618,7 @@ Examples:
     )
     p.add_argument("--timeout-sec", type=int, default=120, help="Endpoint timeout in seconds")
     p.add_argument(
-        "--contact-sheet", help="New JPEG path (default: data_dir/captions/<unique>.jpg)"
+        "--contact-sheet", help="Retain a new JPEG at this path (default: auto-cleaned sheet)"
     )
     p.add_argument("--sampling-video", help="Optional existing downscaled video to sample")
     p.add_argument("--sample-count", type=int, default=12, help="Maximum sampled frames")
@@ -633,9 +635,19 @@ Examples:
 
     p = subparsers.add_parser("index", help="Index video metadata (alias of thea-index)")
     add_index_arguments(p)
+    p = subparsers.add_parser(
+        "importindex", help="Merge old catalogues into the shared video index"
+    )
+    p.add_argument("paths", nargs="+", help="Read-only source SQLite catalogue files")
+    p = subparsers.add_parser("search", help="Search indexed descriptions and video metadata")
+    p.add_argument(
+        "query", help="Descriptive search, for example: drone footage in Arunachal for nature"
+    )
+    p.add_argument("--limit", type=int, default=20, help="Maximum results, from 1 to 100")
     return parser
 
 
+@track(context_fn=lambda args, kwargs: {"operation": args[0] if args else kwargs.get("command")})
 def run_command(command: str, **arguments) -> dict:
     """Execute one CLI/MCP operation and return its structured result."""
     parser = build_parser()
@@ -668,6 +680,8 @@ def run_command(command: str, **arguments) -> dict:
         "pan": cmd_pan,
         "caption": cmd_caption,
         "index": cmd_index,
+        "importindex": cmd_importindex,
+        "search": cmd_search,
     }
     return commands[command](args, config)
 
@@ -675,7 +689,16 @@ def run_command(command: str, **arguments) -> dict:
 def main():
     parser = build_parser()
     args = parser.parse_args()
-    json_commands = {"crop", "centercrop", "ratiocrop", "pan", "caption", "index"}
+    json_commands = {
+        "crop",
+        "centercrop",
+        "ratiocrop",
+        "pan",
+        "caption",
+        "index",
+        "importindex",
+        "search",
+    }
     setup_logging(sys.stderr if args.command in json_commands else sys.stdout)
 
     if not args.command:
@@ -704,10 +727,8 @@ def main():
         logger.error(f"Unexpected error: {type(e).__name__}: {e}", exc_info=True)
         sys.exit(1)
     finally:
-        # Print metrics summary for non-trivial commands
-        collector = get_default_collector()
-        if collector.records and args.command != "presets":
-            logger.info(f"\n{collector.report_table()}")
+        if args.command != "presets":
+            log_default_metrics()
 
 
 if __name__ == "__main__":

@@ -35,6 +35,60 @@ Backed by: [pipeline orchestration](../src/main.py),
 [slicer](../src/slicer/slicer.py).
 This diagram describes code relationships; it is not a GPU execution benchmark.
 
+## SQLite catalogue schema
+
+All production catalogue commands resolve `data_dir\video-index.sqlite3`.
+There is one application table, `videos`; captions live in `description`,
+not a separate caption file or table. The diagram lists all 21 retained columns.
+Types below are logical types: the generic SQLite store adds untyped columns;
+`tags` contains a JSON array of strings, returned as an array by the application.
+Codec/audio/container details, raw probe JSON and unselected tags are not stored.
+
+```mermaid
+erDiagram
+    videos {
+        string content_hash PK
+        string path UK
+        string name
+        string directory
+        string extension
+        int size_bytes
+        string description
+        string tags
+        string country
+        string state
+        string location
+        float latitude
+        float longitude
+        string creation_time
+        string device
+        string make
+        string model
+        int width
+        int height
+        float fps
+        float duration_sec
+    }
+```
+
+Backed by: [Video entity](../src/tools/models/video.py),
+[SQLite schema/index creation](../src/tools/storage/sqlite_store.py),
+[canonical path](../src/utils/settings.py), and
+[catalogue updates/search/import](../src/tools/catalogue.py).
+
+`content_hash` is a fast partial signature, not proof of full byte equality.
+`path` is unique; duplicate content retains one representative path.
+Reindexing the same content retains stored descriptions and missing metadata;
+changed content at the same path does not inherit the previous description.
+`creation_time` is the embedded recording timestamp when probed/known, otherwise
+the filesystem creation timestamp formatted as UTC ISO 8601. There are no separate
+filesystem timestamp columns. File creation time can reset on copies.
+Country/state and fallback coordinates can be approximate folder inferences;
+there are no persisted provenance columns. `location` retains the raw ISO-6709
+string when embedded GPS exists. Tags are user-managed, not imported file tags.
+Descriptions are generated text, not a visual-validation guarantee.
+See [catalogue behavior](tools/README.md).
+
 ## Ownership and layout
 
 | Location | Responsibility | Guide |

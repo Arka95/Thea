@@ -43,6 +43,7 @@ CROPANDPAN_DIR = "cropandpan"
 VIDEO_META_CSV = "video_meta.csv"
 PIPELINE_STATS_CSV = "pipeline_stats.csv"
 DATA_ROOT_NAME = "Thea"
+VIDEO_INDEX_DB = "video-index.sqlite3"
 
 # ---------------------------------------------------------------------------
 # Settings file location
@@ -144,6 +145,11 @@ def get_downsampled_path(video_path: str, data_dir: str, lossless: bool = False)
     base = os.path.splitext(os.path.basename(video_path))[0]
     ext = ".avi" if lossless else ".mp4"
     return os.path.join(data_dir, DOWNSAMPLED_DIR, f"{base}{ext}")
+
+
+def get_catalogue_path() -> str:
+    """Resolve the single video index independently of the source video's path."""
+    return os.path.join(resolve_data_dir(str(PROJECT_ROOT)), VIDEO_INDEX_DB)
 
 
 def get_sliced_dir(data_dir: str) -> str:

@@ -140,6 +140,7 @@ def test_caption_uses_selected_model_context_and_environment_key(tmp_path, monke
     context = captioner.return_value.caption_video.call_args.kwargs["context"]
     assert context.location_in_metadata and context.timestamp_in_metadata
     assert context.additional_context == "Trusted context"
+    assert captioner.return_value.caption_video.call_args.kwargs["keep_contact_sheet"] is True
     assert "test-key" not in json.dumps(output)
 
 
@@ -170,17 +171,111 @@ def test_caption_requires_model_in_cli():
     assert error.value.code == 2
 
 
+def test_caption_uses_indexed_locale_and_saves_description(tmp_path, monkeypatch, catalogue_path):
+    from tools.storage.sqlite_store import SQLiteStore
+    from tools.walkdir import build_video
+
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake video")
+    video = build_video(str(source))
+    video.country, video.state, video.width = "India", "Arunachal Pradesh", 3840
+    video.tags = ["Tawang Monastery"]
+    video.creation_time = "2024-09-14T11:48:10+0530"
+    with SQLiteStore(str(catalogue_path)) as store:
+        store.save(video)
+    sample = SampledContactSheet(str(source), "sheet.jpg", (1.0,), 2.0, 176, 144, 0.1)
+    result = CaptionResult(str(source), "Mountains in Arunachal Pradesh, India.", sample, "vision")
+    captioner = Mock()
+    captioner.return_value.caption_video.return_value = result
+    monkeypatch.setattr(commands, "SampledCaptioner", captioner)
+    output = main.run_command("caption", path=str(source), model="vision")
+    context = captioner.return_value.caption_video.call_args.kwargs["context"]
+    assert (context.country, context.state) == ("India", "Arunachal Pradesh")
+    assert output["db"] == str(catalogue_path)
+    with SQLiteStore(str(catalogue_path)) as store:
+        stored = store.get("videos", video.content_hash)
+    assert (stored["description"], stored["width"]) == (result.caption, 3840)
+    assert stored["tags"] == ["Tawang Monastery"]
+    assert stored["creation_time"] == "2024-09-14T11:48:10+0530"
+
+
+def test_directory_caption_persists_success_and_retains_description_on_failure(
+    tmp_path, monkeypatch, catalogue_path
+):
+    from tools.storage.sqlite_store import SQLiteStore
+    from tools.walkdir import build_video
+
+    root = tmp_path / "footage"
+    root.mkdir()
+    first, second = root / "first.mp4", root / "second.mp4"
+    first.write_bytes(b"first footage")
+    second.write_bytes(b"second footage")
+    old = build_video(str(second))
+    old.description = "Keep the earlier caption."
+    with SQLiteStore(str(catalogue_path)) as store:
+        store.save(old)
+
+    def caption_video(**kwargs):
+        source = kwargs["source_video_path"]
+        if source == str(second):
+            raise RuntimeError("private endpoint failure")
+        sample = SampledContactSheet(source, "sheet.jpg", (1.0,), 2.0, 176, 144, 0.1)
+        return CaptionResult(source, "A mountain landscape.", sample, "vision")
+
+    captioner = Mock()
+    captioner.return_value.caption_video.side_effect = caption_video
+    monkeypatch.setattr(commands, "SampledCaptioner", captioner)
+    result = main.run_command("caption", path=str(root), model="vision")
+    assert (result["selected"], result["saved"], result["complete"]) == (2, 1, False)
+    assert result["errors"] == [{"path": str(second), "error_type": "RuntimeError"}]
+    with SQLiteStore(str(catalogue_path)) as store:
+        assert store.get("videos", old.content_hash)["description"] == "Keep the earlier caption."
+        assert (
+            store.get("videos", build_video(str(first)).content_hash)["description"]
+            == "A mountain landscape."
+        )
+
+
+def test_caption_detects_source_changes_without_persisting_filesystem_timestamps(
+    tmp_path, monkeypatch, catalogue_path
+):
+    from tools.storage.sqlite_store import SQLiteStore
+    from tools.walkdir import build_video
+
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"original footage")
+    video = build_video(str(source))
+    video.description = "Keep the original caption."
+    with SQLiteStore(str(catalogue_path)) as store:
+        store.save(video)
+
+    def caption_video(**kwargs):
+        source.write_bytes(b"changed footage with different size")
+        sample = SampledContactSheet(str(source), None, (1.0,), 2.0, 176, 144, 0.1)
+        return CaptionResult(str(source), "Do not save.", sample, "vision")
+
+    captioner = Mock()
+    captioner.return_value.caption_video.side_effect = caption_video
+    monkeypatch.setattr(commands, "SampledCaptioner", captioner)
+    with pytest.raises(ValueError, match="changed during captioning"):
+        main.run_command("caption", path=str(source), model="vision")
+    with SQLiteStore(str(catalogue_path)) as store:
+        assert store.get("videos", video.content_hash)["description"] == video.description
+
+
 def test_index_dispatches_shared_api(monkeypatch):
     operation = Mock(return_value={"saved": 1})
     monkeypatch.setattr(commands, "index_videos", operation)
-    assert main.run_command("index", root="videos", limit=3, infer_loc=True) == {"saved": 1}
+    assert main.run_command(
+        "index", root="videos", limit=3, infer_loc=True, report_path="scan.json"
+    ) == {"saved": 1}
     operation.assert_called_once_with(
         root="videos",
         limit=3,
-        db=None,
         probe=False,
         geocode=False,
         infer_loc=True,
+        report_path="scan.json",
     )
 
 
@@ -196,30 +291,37 @@ def test_pipeline_respects_explicit_output_directory(tmp_path, monkeypatch):
     assert result == {"results": [{"clips": []}]}
 
 
-def test_index_api_implies_probe_and_preserves_distinct_counts(monkeypatch, capsys):
+def test_index_api_implies_probe_and_populates_metadata(tmp_path, monkeypatch, capsys):
     from tools import walkdir
 
-    store = Mock()
-    store.all.return_value = [{"name": "first.mp4"}, {"name": "second.mp4"}]
-    monkeypatch.setattr(walkdir, "InMemoryStore", Mock(return_value=store))
-    geocoder, gazetteer = object(), object()
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"synthetic footage")
+    geocoder, gazetteer = Mock(), Mock()
+    geocoder.country.return_value = "India"
     monkeypatch.setattr(walkdir, "default_geocoder", Mock(return_value=geocoder))
     monkeypatch.setattr(walkdir, "default_gazetteer", Mock(return_value=gazetteer))
-    operation = Mock(return_value=3)
-    monkeypatch.setattr(walkdir, "walk_and_store", operation)
-    result = walkdir.index_videos("videos", geocode=True, infer_loc=True)
-    assert result == {
-        "saved": 3,
-        "distinct": 2,
-        "db": None,
-        "samples": [{"name": "first.mp4"}, {"name": "second.mp4"}],
-    }
-    operation.assert_called_once_with(
-        "videos",
-        store,
-        limit=None,
-        probe=True,
-        geocoder=geocoder,
-        place_gazetteer=gazetteer,
-    )
+    probe = Mock(return_value={"format": {"tags": {"location": "+22.5+88.4/"}}, "streams": []})
+    monkeypatch.setattr(walkdir, "run_ffprobe", probe)
+
+    result = walkdir.index_videos(str(tmp_path), geocode=True, infer_loc=True)
+    assert result["saved"] == result["distinct"] == 1
+    assert result["scan"]["probe"] and result["scan"]["complete"]
+    assert result["samples"][0]["country"] == "India"
+    assert result["samples"][0]["latitude"] == 22.5
+    probe.assert_called_once_with(str(source))
     assert capsys.readouterr().out == ""
+
+
+def test_index_cli_exports_audit_report(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"synthetic footage")
+    report = tmp_path / "scan.json"
+    monkeypatch.setattr("sys.argv", ["thea", "index", str(tmp_path), "--report-path", str(report)])
+    main.main()
+
+    result = json.loads(capsys.readouterr().out)
+    audit = json.loads(report.read_text(encoding="utf-8"))
+    assert result["report_path"] == str(report)
+    assert audit["files"][0]["path"] == str(source)
+    assert audit["discovered"] == audit["saved"] == 1
+    assert source.read_bytes() == b"synthetic footage"

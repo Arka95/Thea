@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -17,6 +18,8 @@ class CaptionContext:
     location_in_metadata: bool = False
     timestamp_in_metadata: bool = False
     additional_context: str | None = None
+    country: str | None = None
+    state: str | None = None
 
 
 @dataclass(frozen=True)
@@ -30,8 +33,7 @@ class CaptionResult:
 class VisionCaptionBackend(Protocol):
     model: str
 
-    def caption(self, image_path: str, prompt: str) -> str:
-        ...
+    def caption(self, image_path: str, prompt: str) -> str: ...
 
 
 def build_caption_prompt(context: CaptionContext | None = None) -> str:
@@ -50,6 +52,15 @@ def build_caption_prompt(context: CaptionContext | None = None) -> str:
         requirements.append("Capture time is missing; include the visually supported time of day.")
     if context.additional_context:
         requirements.append(f"Additional trusted context: {context.additional_context}")
+    locale = ", ".join(value for value in (context.state, context.country) if value)
+    if locale:
+        requirements.append(
+            f"Indexed region context: {locale}. "
+            "Folder-derived context is approximate, not GPS confirmation. "
+            "Use this context to interpret the scene, without inventing landmarks or events."
+        )
+        if not context.location_in_metadata:
+            requirements.append("You may use this supplied state/country in the caption.")
 
     requirement_block = "\n".join(f"- {requirement}" for requirement in requirements)
     return (
@@ -58,7 +69,8 @@ def build_caption_prompt(context: CaptionContext | None = None) -> str:
         "and visible activity.\n"
         f"{requirement_block}\n"
         "Do not use probabilistic phrases such as 'appears to be', 'likely', or 'possibly'. "
-        "When a named place is not visually supported, use a definitive generic setting such "
+        "When a named place is neither supplied as region context nor visually supported, "
+        "use a definitive generic setting such "
         "as 'a beach', 'a city street', or 'an airport' instead of guessing. Do not invent "
         "events between samples, mention filenames, or output labels, JSON, or bullets."
     )
@@ -157,20 +169,28 @@ class SampledCaptioner:
         contact_sheet_path: str,
         context: CaptionContext | None = None,
         sampling_video_path: str | None = None,
+        keep_contact_sheet: bool = False,
     ) -> CaptionResult:
-        """Caption a source video, optionally sampling Thea's downscaled copy."""
-        sample = create_contact_sheet(
-            video_path=sampling_video_path or source_video_path,
-            output_path=contact_sheet_path,
-            sample_count=self.sample_count,
-            frame_width=self.frame_width,
-            frame_height=self.frame_height,
-            columns=self.columns,
-        )
-        caption = self.backend.caption(sample.image_path, build_caption_prompt(context))
-        return CaptionResult(
-            source_video_path=source_video_path,
-            caption=caption,
-            sample=sample,
-            model=self.backend.model,
-        )
+        """Caption a video, cleaning owned intermediate images unless explicitly kept."""
+        sheet = Path(contact_sheet_path).expanduser().resolve()
+        if sheet.exists():
+            raise FileExistsError(f"Contact sheet already exists: {sheet}")
+        try:
+            sample = create_contact_sheet(
+                video_path=sampling_video_path or source_video_path,
+                output_path=str(sheet),
+                sample_count=self.sample_count,
+                frame_width=self.frame_width,
+                frame_height=self.frame_height,
+                columns=self.columns,
+            )
+            caption = self.backend.caption(str(sheet), build_caption_prompt(context))
+            return CaptionResult(
+                source_video_path=source_video_path,
+                caption=caption,
+                sample=sample if keep_contact_sheet else replace(sample, image_path=None),
+                model=self.backend.model,
+            )
+        finally:
+            if not keep_contact_sheet:
+                sheet.unlink(missing_ok=True)

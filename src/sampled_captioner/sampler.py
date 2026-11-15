@@ -14,7 +14,7 @@ import numpy as np
 @dataclass(frozen=True)
 class SampledContactSheet:
     video_path: str
-    image_path: str
+    image_path: str | None
     timestamps_sec: tuple[float, ...]
     duration_sec: float
     frame_width: int

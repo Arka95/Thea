@@ -1,10 +1,14 @@
 """Fast tests for sampled frame layout, prompting, and local vision requests."""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
+import pytest
 
+from sampled_captioner import CaptionResult, SampledCaptioner, SampledContactSheet
 from sampled_captioner.captioner import (
     CaptionContext,
     OpenAICompatibleVisionBackend,
@@ -94,3 +98,57 @@ def test_openai_backend_sends_low_detail_image_and_normalizes_caption(tmp_path):
     image = payload["messages"][0]["content"][1]["image_url"]
     assert image["detail"] == "low"
     assert image["url"].startswith("data:image/jpeg;base64,")
+
+
+@pytest.mark.parametrize("keep", [False, True])
+@pytest.mark.parametrize("failure", [None, "sampling", "inference"])
+def test_captioner_owns_contact_sheet_cleanup(tmp_path, monkeypatch, keep, failure):
+    source, sheet, unrelated = (
+        tmp_path / name for name in ("source.mp4", "sheet.jpg", "other.jpg")
+    )
+    source.write_bytes(b"source video")
+    unrelated.write_bytes(b"unrelated image")
+
+    def sample_video(**kwargs):
+        Path(kwargs["output_path"]).write_bytes(b"generated jpeg")
+        if failure == "sampling":
+            raise ValueError("sampling failed after writing an image")
+        return SampledContactSheet(str(source), str(sheet), (1.0,), 2.0, 176, 144, 0.1)
+
+    def infer(image_path, prompt):
+        assert Path(image_path).read_bytes() == b"generated jpeg"
+        if failure == "inference":
+            raise RuntimeError("inference failed")
+        return "A mountain landscape."
+
+    monkeypatch.setattr("sampled_captioner.captioner.create_contact_sheet", sample_video)
+    captioner = SampledCaptioner(SimpleNamespace(model="vision", caption=infer))
+    arguments = {
+        "source_video_path": str(source),
+        "contact_sheet_path": str(sheet),
+    }
+    if keep:
+        arguments["keep_contact_sheet"] = True
+    if failure:
+        with pytest.raises(ValueError if failure == "sampling" else RuntimeError):
+            captioner.caption_video(**arguments)
+    else:
+        result = captioner.caption_video(**arguments)
+        assert isinstance(result, CaptionResult)
+        assert result.caption == "A mountain landscape."
+        assert result.sample.image_path == (str(sheet) if keep else None)
+    assert sheet.exists() is keep
+    assert source.read_bytes() == b"source video"
+    assert unrelated.read_bytes() == b"unrelated image"
+
+
+def test_captioner_never_deletes_or_overwrites_existing_images(tmp_path, monkeypatch):
+    sheet = tmp_path / "existing.jpg"
+    sheet.write_bytes(b"existing image")
+    sampler, backend = Mock(), Mock()
+    monkeypatch.setattr("sampled_captioner.captioner.create_contact_sheet", sampler)
+    with pytest.raises(FileExistsError):
+        SampledCaptioner(backend).caption_video("source.mp4", str(sheet))
+    assert sheet.read_bytes() == b"existing image"
+    sampler.assert_not_called()
+    backend.caption.assert_not_called()

@@ -3,7 +3,7 @@
 [Back to Thea](../../README.md) | [Usage](README.md)
 
 `src\main.py` owns argument parsing and `run_command`, the shared dispatcher.
-`src\cli\commands.py` adapts crop/pan, caption and indexing APIs; existing
+`src\cli\commands.py` adapts crop/pan, caption, indexing, import and search APIs; existing
 processing handlers now also return structured results without removing CLI
 logging. `tools.walkdir.index_videos` provides the quiet indexing API used by both
 interfaces; `thea-index` retains its existing console summary.
@@ -15,11 +15,17 @@ tool arguments; media bounds/codec checks remain in their owning APIs.
 Each operation holds a process-local lock and resets its metrics. Only the
 stdio launcher configures stderr logging; it never invokes CLI printing.
 
-Caption defaults create a unique JPEG below the resolved `data_dir\captions`.
+Caption defaults use an auto-cleaned JPEG below resolved `data_dir\captions`.
+Cleanup belongs to `SampledCaptioner.caption_video`, not the MCP transport;
+the core also handles direct Python calls and failed/partial attempts.
 Explicit existing JPEG destinations are rejected. The adapter validates paths
 and positive sampling/timeout settings before invoking the sampler or endpoint.
 API keys are read at the interface boundary from the named environment variable
 and are not included in results.
+Caption directory batching is owned by the adapter; it persists each successful
+description before proceeding. `tools.catalogue` supplies the shared path,
+metadata merge, locale enrichment, read-only legacy import and ranked search.
+No operational Python client script is needed to batch or query the catalogue.
 
 `pipeline --output` now selects the run's output root; it was previously parsed
 but ignored. Other existing defaults, aliases and Python APIs are retained.

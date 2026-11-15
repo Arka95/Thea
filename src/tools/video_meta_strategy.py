@@ -44,11 +44,11 @@ class ProbeContext:
 
     path: str
     filename: str
-    format_tags: Dict[str, str]          # original-case format-level tags
-    stream_handlers: List[str]           # every stream handler_name
-    stream_encoders: List[str]           # every stream/encoder value
-    video_stream: Dict[str, Any]         # first video stream (or {})
-    format: Dict[str, Any]               # format section
+    format_tags: Dict[str, str]  # original-case format-level tags
+    stream_handlers: List[str]  # every stream handler_name
+    stream_encoders: List[str]  # every stream/encoder value
+    video_stream: Dict[str, Any]  # first video stream (or {})
+    format: Dict[str, Any]  # format section
     _ftags_lower: Dict[str, str]
 
     def ftag(self, key: str) -> Optional[str]:
@@ -113,7 +113,7 @@ def _normalise_filename(name: str) -> str:
 
 @dataclass
 class DeviceInfo:
-    device: Optional[str] = None   # unified label, e.g. "Apple iPhone 15 Plus"
+    device: Optional[str] = None  # unified label, e.g. "Apple iPhone 15 Plus"
     make: Optional[str] = None
     model: Optional[str] = None
 
@@ -124,8 +124,7 @@ class DeviceStrategy(ABC):
     name: str = "device"
 
     @abstractmethod
-    def detect(self, ctx: ProbeContext) -> Optional[DeviceInfo]:
-        ...
+    def detect(self, ctx: ProbeContext) -> Optional[DeviceInfo]: ...
 
 
 class AppleDeviceStrategy(DeviceStrategy):
@@ -145,9 +144,11 @@ class GoProDeviceStrategy(DeviceStrategy):
     _FILENAME = re.compile(r"^(gx|gh|gopr|gp)\d", re.IGNORECASE)
 
     def detect(self, ctx: ProbeContext) -> Optional[DeviceInfo]:
-        if any("gopro" in h for h in ctx.handlers_lower()) \
-                or any("gopro" in e for e in ctx.encoders_lower()) \
-                or self._FILENAME.match(ctx.filename):
+        if (
+            any("gopro" in h for h in ctx.handlers_lower())
+            or any("gopro" in e for e in ctx.encoders_lower())
+            or self._FILENAME.match(ctx.filename)
+        ):
             return DeviceInfo(device="GoPro", make="GoPro")
         return None
 
@@ -157,8 +158,9 @@ class DJIDeviceStrategy(DeviceStrategy):
     _FILENAME = re.compile(r"^dji_", re.IGNORECASE)
 
     def detect(self, ctx: ProbeContext) -> Optional[DeviceInfo]:
-        if any(h.startswith("dji.") or "dji" in h for h in ctx.handlers_lower()) \
-                or self._FILENAME.match(ctx.filename):
+        if any(
+            h.startswith("dji.") or "dji" in h for h in ctx.handlers_lower()
+        ) or self._FILENAME.match(ctx.filename):
             return DeviceInfo(device="DJI", make="DJI")
         return None
 
@@ -266,15 +268,15 @@ class LocationInfo:
     accuracy_m: Optional[float] = None
     raw: Optional[str] = None
     source: Optional[str] = None
-    country: Optional[str] = None   # set only by name-based fallbacks (e.g. path)
+    country: Optional[str] = None  # set only by name-based fallbacks (e.g. path)
+    state: str | None = None
 
 
 class LocationStrategy(ABC):
     name: str = "location"
 
     @abstractmethod
-    def extract(self, ctx: ProbeContext) -> Optional[LocationInfo]:
-        ...
+    def extract(self, ctx: ProbeContext) -> Optional[LocationInfo]: ...
 
 
 class AppleLocationStrategy(LocationStrategy):
@@ -347,13 +349,14 @@ class PathLocationStrategy(LocationStrategy):
             words = self._WORD.findall(segment.lower())
             for n in range(min(self._MAX_NGRAM, len(words)), 0, -1):
                 for i in range(len(words) - n + 1):
-                    phrase = " ".join(words[i:i + n])
+                    phrase = " ".join(words[i : i + n])
                     hit = self._gazetteer.lookup(phrase)
                     if hit is not None:
                         return LocationInfo(
                             latitude=hit.latitude,
                             longitude=hit.longitude,
                             country=hit.country,
+                            state=hit.matched.title() if hit.kind == "state" else None,
                             source=f"path:{hit.kind}:{hit.matched}",
                         )
         return None
@@ -397,8 +400,7 @@ def extract_resolution_fps(ctx: ProbeContext) -> Dict[str, Optional[float]]:
     vs = ctx.video_stream or {}
     width = vs.get("width")
     height = vs.get("height")
-    fps = _fraction_to_float(vs.get("avg_frame_rate")) \
-        or _fraction_to_float(vs.get("r_frame_rate"))
+    fps = _fraction_to_float(vs.get("avg_frame_rate")) or _fraction_to_float(vs.get("r_frame_rate"))
     return {
         "width": int(width) if width else None,
         "height": int(height) if height else None,
@@ -408,9 +410,13 @@ def extract_resolution_fps(ctx: ProbeContext) -> Dict[str, Optional[float]]:
 
 def extract_creation_time(ctx: ProbeContext) -> Optional[str]:
     """Best embedded recording timestamp (Apple's is timezone-aware)."""
+    stream_tags = {
+        key.lower(): value for key, value in (ctx.video_stream.get("tags") or {}).items()
+    }
     return (
         ctx.ftag("com.apple.quicktime.creationdate")
         or ctx.ftag("creation_time")
+        or stream_tags.get("creation_time")
     )
 
 
@@ -419,16 +425,15 @@ def extract_creation_time(ctx: ProbeContext) -> Optional[str]:
 # --------------------------------------------------------------------------- #
 
 
-def populate_video(video, probe_json: Dict[str, Any], geocoder=None,
-                   place_gazetteer=None) -> None:
+def populate_video(video, probe_json: Dict[str, Any], geocoder=None, place_gazetteer=None) -> None:
     """Apply every strategy and write the results onto ``video`` in place.
 
     If a ``geocoder`` (a :class:`tools.geocoding.Geocoder`) is supplied and the
     video has a GPS position, ``video.country`` is reverse-geocoded from it. If a
     ``place_gazetteer`` (a :class:`tools.geocoding.PlaceGazetteer`) is supplied
     and the video has *no* GPS tag, an approximate location is inferred from a
-    country/state name in the folder path (``video.location_source`` records the
-    provenance, e.g. ``"apple"``, ``"android"`` or ``"path:country:greece"``).
+    country/state name in the folder path. Only selected organizing fields are
+    copied onto the video; technical metadata and probe tags are ignored.
     """
     ctx = build_context(probe_json, video.path)
 
@@ -441,17 +446,19 @@ def populate_video(video, probe_json: Dict[str, Any], geocoder=None,
     loc = extract_location(ctx, extra)
     video.latitude = loc.latitude
     video.longitude = loc.longitude
-    video.altitude = loc.altitude
-    video.location_accuracy_m = loc.accuracy_m
-    video.location_source = loc.source
     if loc.raw:
         video.location = loc.raw
 
     country = loc.country
-    if country is None and geocoder is not None \
-            and loc.latitude is not None and loc.longitude is not None:
+    if (
+        country is None
+        and geocoder is not None
+        and loc.latitude is not None
+        and loc.longitude is not None
+    ):
         country = geocoder.country(loc.latitude, loc.longitude)
     video.country = country
+    video.state = loc.state
 
     res = extract_resolution_fps(ctx)
     video.width = res["width"]
@@ -485,6 +492,7 @@ def run_ffprobe(path: str, timeout: int = 60) -> Optional[Dict[str, Any]]:
     if ffprobe is None:
         try:
             import static_ffmpeg
+
             static_ffmpeg.add_paths()
             ffprobe = shutil.which("ffprobe")
         except Exception:
@@ -494,9 +502,19 @@ def run_ffprobe(path: str, timeout: int = 60) -> Optional[Dict[str, Any]]:
 
     try:
         out = subprocess.run(
-            [ffprobe, "-v", "quiet", "-print_format", "json",
-             "-show_format", "-show_streams", path],
-            capture_output=True, text=True, timeout=timeout,
+            [
+                ffprobe,
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
         if out.returncode != 0 or not out.stdout:
             return None

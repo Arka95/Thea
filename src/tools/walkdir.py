@@ -18,25 +18,28 @@ Two levels of API:
 CLI::
 
     python -m tools.walkdir [ROOT] [LIMIT]
-    python -m tools.walkdir E:\\ --db E:\\Thea\\videos.sqlite3 --geocode --infer-loc
+    python -m tools.walkdir E:\\ --geocode --infer-loc
     python tools/walkdir.py D:\\ 100
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import queue
 import threading
-from contextlib import nullcontext
-from typing import Callable, List, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import List, Optional
 
+from tools.catalogue import enrich_locale, merge_video, migrate_catalogue
 from tools.geocoding import default_gazetteer, default_geocoder
 from tools.models.video import Video, compute_content_hash
 from tools.storage.interfaces import IStore
-from tools.storage.memory_store import InMemoryStore
 from tools.storage.sqlite_store import SQLiteStore
 from tools.video_meta_strategy import populate_video, run_ffprobe
+from utils.settings import get_catalogue_path
 
 VIDEO_EXTENSIONS = {
     ".mp4",
@@ -65,6 +68,7 @@ def find_video_paths(
     extensions: Optional[set] = None,
     limit: Optional[int] = None,
     on_file: Optional[Callable[[str], None]] = None,
+    on_error: Callable[[str, OSError], None] | None = None,
 ) -> List[str]:
     """Recursively find video files under ``root`` using worker threads.
 
@@ -73,9 +77,10 @@ def find_video_paths(
         max_threads: Number of worker threads (clamped to ``[1, 10]``).
         extensions: Set of lowercase extensions (incl. dot) to keep. Defaults to
             :data:`VIDEO_EXTENSIONS`.
-        limit: Stop once this many video files have been collected (approximate
-            under concurrency — may return a few more than ``limit``).
+        limit: Stop once this many video files have been collected. Selection
+            depends on concurrent traversal order.
         on_file: Optional callback invoked with each video path as it is found.
+        on_error: Optional callback for unreadable directories or entries.
 
     Returns:
         List of absolute video file paths.
@@ -116,10 +121,13 @@ def find_video_paths(
                                             results.append(entry.path)
                                         if on_file is not None:
                                             on_file(entry.path)
-                            except OSError:
+                            except OSError as error:
+                                if on_error is not None:
+                                    on_error(entry.path, error)
                                 continue
-                except OSError:
-                    pass
+                except OSError as error:
+                    if on_error is not None:
+                        on_error(d, error)
             finally:
                 dir_q.task_done()
 
@@ -145,6 +153,8 @@ def build_video(
     probe: bool = False,
     geocoder=None,
     place_gazetteer=None,
+    on_error: Callable[[str, OSError], None] | None = None,
+    store: IStore | None = None,
 ) -> Optional[Video]:
     """Build a :class:`Video` with filesystem identity fields.
 
@@ -157,17 +167,23 @@ def build_video(
     :class:`tools.geocoding.Geocoder`) is given, ``country`` is derived from GPS;
     if ``place_gazetteer`` is given, videos without GPS fall back to an
     approximate location inferred from a place name in the folder path.
+    With a ``store``, merge existing metadata before falling back to filesystem
+    creation time, so an unprobed reindex cannot replace a recording timestamp.
     """
     try:
         st = os.stat(path)
-    except OSError:
+    except OSError as error:
+        if on_error is not None:
+            on_error(path, error)
         return None
 
     content_hash = None
     if compute_hash:
         try:
             content_hash = compute_content_hash(path, partial=partial)
-        except OSError:
+        except OSError as error:
+            if on_error is not None:
+                on_error(path, error)
             return None
 
     video = Video(
@@ -177,8 +193,6 @@ def build_video(
         directory=os.path.dirname(path),
         extension=os.path.splitext(path)[1].lower() or None,
         size_bytes=st.st_size,
-        modified_time=st.st_mtime,
-        created_time=st.st_ctime,
     )
 
     if probe:
@@ -186,6 +200,12 @@ def build_video(
         if probe_json:
             populate_video(video, probe_json, geocoder=geocoder, place_gazetteer=place_gazetteer)
 
+    if store is not None:
+        video = merge_video(store.get("videos", video.content_hash), video)
+    if not video.creation_time:
+        video.creation_time = datetime.fromtimestamp(
+            getattr(st, "st_birthtime", st.st_ctime), UTC
+        ).isoformat()
     return video
 
 
@@ -199,6 +219,7 @@ def walk_and_store(
     probe: bool = False,
     geocoder=None,
     place_gazetteer=None,
+    report: dict | None = None,
 ) -> int:
     """Walk ``root``, build :class:`Video` records, and dump them into ``store``.
 
@@ -209,9 +230,31 @@ def walk_and_store(
     ``geocoder`` to reverse-geocode ``country`` from GPS, and a
     ``place_gazetteer`` to infer approximate location from folder-path names.
     """
-    paths = find_video_paths(root, max_threads=max_threads, limit=limit)
+    errors = []
+    errors_lock = threading.Lock()
+
+    def record_error(path, error, stage="scan"):
+        with errors_lock:
+            errors.append({"path": path, "stage": stage, "error_type": type(error).__name__})
+
+    paths = sorted(
+        find_video_paths(
+            root,
+            max_threads=max_threads,
+            limit=limit,
+            on_error=record_error if report is not None else None,
+        )
+    )
     saved = 0
+    files = []
+    directories = {}
+    seen_hashes = set()
     for p in paths:
+        if report is not None:
+            directory = directories.setdefault(
+                os.path.dirname(p), {"discovered": 0, "saved": 0, "skipped": 0}
+            )
+            directory["discovered"] += 1
         video = build_video(
             p,
             compute_hash=compute_hash,
@@ -219,11 +262,48 @@ def walk_and_store(
             probe=probe,
             geocoder=geocoder,
             place_gazetteer=place_gazetteer,
+            on_error=(
+                (lambda path, error: record_error(path, error, "read"))
+                if report is not None
+                else None
+            ),
+            store=store,
         )
         if video is None:
+            if report is not None:
+                directory["skipped"] += 1
+                files.append({"path": p, "status": "skipped"})
             continue
+        if place_gazetteer is not None:
+            video = enrich_locale(video, place_gazetteer)
         store.save(video)
         saved += 1
+        if report is not None:
+            directory["saved"] += 1
+            files.append(
+                {
+                    "path": p,
+                    "status": "saved",
+                    "content_hash": video.content_hash,
+                    "duplicate_in_scan": video.content_hash in seen_hashes,
+                }
+            )
+            seen_hashes.add(video.content_hash)
+    if report is not None:
+        report.update(
+            discovered=len(paths),
+            saved=saved,
+            skipped=len(paths) - saved,
+            unique_contents=len(seen_hashes),
+            duplicates=saved - len(seen_hashes),
+            complete=not errors and saved == len(paths),
+            error_count=len(errors),
+            errors=errors,
+            directories=[
+                {"directory": path, **counts} for path, counts in sorted(directories.items())
+            ],
+            files=files,
+        )
     return saved
 
 
@@ -231,7 +311,9 @@ def add_index_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the shared ``thea index`` / ``thea-index`` arguments."""
     parser.add_argument("root", nargs="?", default="D:\\")
     parser.add_argument("limit", nargs="?", type=int)
-    parser.add_argument("--db", help="Persist the index in this SQLite database.")
+    parser.add_argument(
+        "--report-path", help="Write a new JSON audit with every discovered path and outcome."
+    )
     parser.add_argument("--probe", action="store_true", help="Read embedded metadata with ffprobe.")
     parser.add_argument("--geocode", action="store_true", help="Resolve GPS to country offline.")
     parser.add_argument(
@@ -242,23 +324,39 @@ def add_index_arguments(parser: argparse.ArgumentParser) -> None:
 def index_videos(
     root: str,
     limit: int | None = None,
-    db: str | None = None,
     probe: bool = False,
     geocode: bool = False,
     infer_loc: bool = False,
+    report_path: str | None = None,
 ) -> dict:
-    """Index videos without console output; return counts and up to eight records."""
+    """Index videos, reporting this scan separately from existing catalogue rows."""
+    root = os.path.abspath(root)
+    if not os.path.exists(root):
+        raise FileNotFoundError(f"Index root does not exist: {root}")
+    if not os.path.isdir(root):
+        raise NotADirectoryError(f"Index root is not a directory: {root}")
+    if limit is not None and limit <= 0:
+        raise ValueError("Index limit must be positive.")
+    db = get_catalogue_path()
+    if report_path:
+        report_path = os.path.abspath(report_path)
+        if db and os.path.normcase(report_path) == os.path.normcase(os.path.abspath(db)):
+            raise ValueError("Index database and audit report must have different paths.")
+        if os.path.exists(report_path):
+            raise FileExistsError(f"Index audit already exists: {report_path}")
     probe = probe or geocode or infer_loc
     geocoder = default_geocoder() if geocode else None
     place_gazetteer = default_gazetteer() if infer_loc else None
 
-    if db:
-        os.makedirs(os.path.dirname(os.path.abspath(db)), exist_ok=True)
-        store_context = SQLiteStore(db)
-    else:
-        store_context = nullcontext(InMemoryStore())
-
-    with store_context as store:
+    scan = {
+        "root": root,
+        "limit": limit,
+        "limited": limit is not None,
+        "probe": probe,
+        "started_at": datetime.now(UTC).isoformat(),
+    }
+    schema = migrate_catalogue()
+    with SQLiteStore(db) as store:
         saved = walk_and_store(
             root,
             store,
@@ -266,9 +364,26 @@ def index_videos(
             probe=probe,
             geocoder=geocoder,
             place_gazetteer=place_gazetteer,
+            report=scan,
         )
         rows = store.all("videos")
-        return {"saved": saved, "distinct": len(rows), "db": db, "samples": rows[:8]}
+    scan["finished_at"] = datetime.now(UTC).isoformat()
+    scan["distinct_in_store"] = len(rows)
+    if report_path:
+        os.makedirs(os.path.dirname(report_path), exist_ok=True)
+        with open(report_path, "x", encoding="utf-8") as output:
+            json.dump(scan, output, indent=2, ensure_ascii=False)
+    summary = {key: value for key, value in scan.items() if key != "files"}
+    summary["errors"] = scan["errors"][:8]
+    return {
+        "saved": saved,
+        "distinct": len(rows),
+        "db": db,
+        "samples": rows[:8],
+        "scan": summary,
+        "report_path": report_path,
+        "schema": schema,
+    }
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -283,18 +398,30 @@ def main(argv: list[str] | None = None) -> None:
         f"probe={probe}, geocode={args.geocode}, infer_loc={args.infer_loc}) ...",
         flush=True,
     )
-    print(f"Index storage     : {args.db or 'in-memory (not persisted)'}")
-    result = index_videos(**vars(args))
+    print(f"Index storage     : {get_catalogue_path()}")
+    from main import run_command, setup_logging
+    from utils.metrics import reset_default_collector
+
+    setup_logging()
+    reset_default_collector()
+    result = run_command("index", **vars(args))
     saved, rows = result["saved"], result["samples"]
     distinct = result["distinct"]
-    print(f"Discovered & saved : {saved} videos")
+    scan = result["scan"]
+    print(f"Discovered paths   : {scan['discovered']}")
+    print(f"Saved paths        : {saved}")
+    print(f"Unique this scan   : {scan['unique_contents']}")
+    print(f"Skipped paths      : {scan['skipped']}")
+    print(f"Scan/read errors   : {scan['error_count']}")
     print(f"Distinct in store  : {distinct} (after content_hash de-dup)")
+    print(f"Scan complete      : {scan['complete']} (limited={scan['limited']})")
+    if result["report_path"]:
+        print(f"Audit report       : {result['report_path']}")
 
     for row in rows:
         loc = ""
         if row.get("country"):
-            src = row.get("location_source") or ""
-            loc = f"  {row['country']} ({src})" if src.startswith("path") else f"  {row['country']}"
+            loc = f"  {row['country']}"
         elif row.get("latitude") is not None:
             loc = f"  @({row['latitude']},{row['longitude']})"
         res = f"{row.get('width')}x{row.get('height')}" if row.get("width") else "?"
