@@ -14,20 +14,9 @@ import logging
 
 from utils.metrics import track
 from utils.settings import is_reencode_enabled
+from utils.ffmpeg import get_ffmpeg_exe as _get_ffmpeg_exe
 
 logger = logging.getLogger("thea")
-
-
-def _get_ffmpeg_exe() -> str:
-    """Get the FFmpeg executable path."""
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except ImportError:
-        raise RuntimeError(
-            "FFmpeg is required for lossless slicing. "
-            "Install via: pip install imageio-ffmpeg"
-        )
 
 
 def _slice_ffmpeg(video_path: str, windows: list, out_folder: str, base_name: str, src_ext: str) -> list:

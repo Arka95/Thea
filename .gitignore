@@ -41,3 +41,5 @@ data/
 # Ignore console output and scratch files
 Console Selection/
 Scratches and Consoles/
+
+*.whl

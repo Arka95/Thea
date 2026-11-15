@@ -9,8 +9,8 @@ Thea identifies stable cinematic segments in video files using GPU-accelerated o
 ## Quick Start
 
 ```bash
-# Install dependencies (requires CUDA-enabled OpenCV — see docs/setup.md)
-pip install -r requirements.txt
+# Complete docs/setup.md once, then activate the project environment
+.\.venv\Scripts\Activate.ps1
 
 # Process a single video (full pipeline: downscale + analyze + slice)
 python main.py pipeline sample.MP4
@@ -31,6 +31,84 @@ python main.py presets
 python main.py downscale sample.MP4 --width 640
 python main.py downscale ./raw_videos/ --width 640 --lossless
 ```
+
+---
+
+## Video Indexing
+
+Index source videos without altering them, including offline country lookup and
+clearly labelled folder-inferred locations:
+
+```powershell
+python -m tools.walkdir "E:\2026 USA" --db "E:\Thea\video_index_2026.sqlite3" --geocode --infer-loc
+```
+
+`--db` persists the catalogue across runs; without it, storage remains temporary
+and in-memory. The optional positional `LIMIT` still works. `--geocode` and
+`--infer-loc` enable metadata probing automatically; `--probe` enables probing
+alone. Zero-coordinate placeholders, out-of-range GPS and malformed location
+tags are ignored, allowing folder inference when available. Valid embedded GPS
+takes precedence over inferred locations. Records are deduplicated by content
+hash, so duplicate copies retain one catalogue path.
+Offline country lookup uses nearest-city data, so results near borders and
+folder-inferred locations are approximate.
+
+---
+
+## Video Merging
+
+Merge an ordered list of compatible clips without re-encoding:
+
+```powershell
+python main.py merge clip1.mp4 clip2.mp4 --output-path "E:\Thea\merged\trip.mp4"
+python main.py merge --manifest "E:\Thea\clips.txt" --output-path "E:\Thea\merged\trip.mp4"
+```
+
+The manifest is UTF-8 text with one video path per line, in playback order.
+Relative paths are resolved beside the manifest. There is no clip-count cap;
+use manifests for large selections to avoid command-line length limits.
+
+The Python API is `merger.merge_videos(video_paths, output_path)`.
+Keep catalogue selection in `VideoSearch` or `IStore.query()`; pass the resulting
+ordered paths to the merger. To order a catalogue selection by recording time,
+use `order_by="creation_time"`.
+
+The command defaults to `<resolved data_dir>\merged\merge_<timestamp>.mp4`;
+`--output-path` overrides that location without using the configured data directory.
+Inputs and existing outputs are never overwritten. All compatible streams,
+including audio, are copied. Stream compatibility is checked first; differing
+codecs, dimensions, audio layouts or time bases fail rather than silently
+re-encode. Output is checked before publishing, and temporary files are cleaned
+up on failure.
+
+---
+
+## Cropping and Panning
+
+Python APIs use FFmpeg conventions: **width before height**, with crop and pan
+coordinates specifying the rectangle's **top-left** in the displayed source.
+
+```python
+from src.cropandpan import crop, centercrop, ratiocrop, pan
+
+crop("clip.mp4", 1000, 600, 100, 200, output_path=r"E:\Thea\cropandpan\crop.mp4")
+centercrop("clip.mp4", 1080, 1080, output_path=r"E:\Thea\cropandpan\square.mp4")
+ratiocrop("clip.mp4", 9, 16, output_path=r"E:\Thea\cropandpan\portrait.mp4")
+pan("clip.mp4", duration=5, output_path=r"E:\Thea\cropandpan\pan.mp4")
+```
+
+Default pan: largest fitting 9:16 rectangle across the frame over the source
+duration. Explicit endpoints support reverse, vertical and diagonal movement.
+A shorter pan trims the output, not playback speed; longer-than-source
+durations fail. Video is re-encoded with its original codec/pixel format and
+audio is copied. Invalid/out-of-bounds rectangles fail before encoding.
+No-op transformations return the original path. Otherwise output defaults to
+`<resolved data_dir>\cropandpan`; `output_path` overrides it. Originals and
+existing outputs are never overwritten.
+
+| Document | Dev guide | Purpose |
+|----------|-----------|---------|
+| [Crop and pan](docs/cropandpan/README.md) | [Development](docs/cropandpan/dev.readme.md) | API signatures, coordinates, ratio fitting, encoding and output behavior |
 
 ---
 
@@ -56,6 +134,10 @@ Thea/
 │   └── downscaler.py               Single + batch video downscaling
 ├── slicer/
 │   └── slicer.py                   Lossless slicing (FFmpeg) or re-encode (OpenCV)
+├── merger/
+│   └── merger.py                   Ordered FFmpeg stream-copy concatenation
+├── src/
+│   └── cropandpan/                 Validated FFmpeg cropping and linear panning APIs
 ├── utils/
 │   ├── config_loader.py            Preset discovery, loading, validation
 │   ├── settings.py                 Global settings, data directory resolution
@@ -83,8 +165,11 @@ The unified command-line interface dispatching to all Thea capabilities. Handles
 | `slice` | Analyze + slice (no downscaling step) |
 | `downscale` | Downscale videos to a target width |
 | `presets` | List available configuration presets |
+| `merge` | Join ordered video paths or a manifest using FFmpeg stream copy |
 
-All commands support single-file mode (path to a video) or batch mode (path to a directory). All output goes to the resolved `data_dir` (see [Settings](#settings) below).
+Processing commands accept a video file or directory. `merge` accepts ordered
+video paths or a manifest. Output follows the resolved `data_dir` (see
+[Settings](#settings)); `merge --output-path` overrides the output file.
 
 #### `motion_assessment/` — Core Analysis Engine
 
@@ -146,8 +231,9 @@ Presets are JSON files discovered by filename stem. The active preset defines al
 
 | Folder | Tests | Runtime | Coverage |
 |--------|-------|---------|----------|
-| `fast/` | 47 | ~2s | Config loader, hardware detection, motion assessment enum, settings, pipeline logger |
-| `slow/` | 31 | ~18s | Optical flow, analyzer, downscaler, slicer, full pipeline |
+| `tests/fast/` | 47 | ~2s | Config loader, hardware detection, motion assessment enum, settings, pipeline logger |
+| `tests/slow/` | 31 | ~18s | Optical flow, analyzer, downscaler, slicer, full pipeline |
+| `tools/tests/` | 100 | ~20s | Storage, metadata, geocoding, search, and directory walking |
 
 Reference outputs in `tests/slow/reference_sample.json` ensure reproducible results across changes.
 
@@ -352,9 +438,9 @@ Benchmarked on RTX 4070 SUPER + Intel Core (10 physical cores), 640x360 test vid
 
 | File | Description |
 |------|-------------|
-| [setup.md](docs/setup.md) | Install CUDA toolkit, cuDNN, and OpenCV with GPU acceleration |
-| [setup.localLLM.md](docs/setup.localLLM.md) | Configure IntelliJ with a local LLM (Ollama/Qwen) for AI-assisted development |
-| [setup.mcp-skills.md](docs/setup.mcp-skills.md) | Full MCP setup: VS Code + Cline + Ollama + web search, git, knowledge graph, filesystem tools |
+| [setup.md](docs/setup.md) | Main sequenced setup and project-local Python environment |
+| [setup.gpu.md](docs/setup.gpu.md) | Configure FFmpeg, NVIDIA CUDA/cuDNN, and CPU versus GPU OpenCV |
+| [setup.local-llm-mcp.md](docs/setup.local-llm-mcp.md) | Configure VS Code, LM Studio or Ollama with Qwen 3, and Thea's MCP client |
 | [video_creator.md](docs/video_creator.md) | LTX-Video 2 + ComfyUI setup for local AI video generation (720p, RTX 4070 SUPER) |
 | [cline-custom-instructions.md](docs/cline-custom-instructions.md) | Agent behavior instructions (paste into Cline Custom Instructions) |
 | [productionize.todo.md](docs/productionize.todo.md) | Roadmap to package Thea as a distributable offline .exe with installer |

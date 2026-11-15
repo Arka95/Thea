@@ -10,6 +10,8 @@ Directory structure (constants, not configurable):
   data_dir/
     downsampled/    — downscaled videos for analysis
     sliced/         — extracted stable clips
+    merged/         — concatenated videos
+    cropandpan/     — cropped and panned videos
     video_meta.csv  — motion assessment results per video
     pipeline_stats.csv — timing stats per pipeline run
 
@@ -33,6 +35,8 @@ logger = logging.getLogger("thea")
 
 DOWNSAMPLED_DIR = "downscaled"
 SLICED_DIR = "sliced"
+MERGED_DIR = "merged"
+CROPANDPAN_DIR = "cropandpan"
 VIDEO_META_CSV = "video_meta.csv"
 PIPELINE_STATS_CSV = "pipeline_stats.csv"
 DATA_ROOT_NAME = "Thea"
@@ -128,6 +132,16 @@ def get_downsampled_path(video_path: str, data_dir: str, lossless: bool = False)
 def get_sliced_dir(data_dir: str) -> str:
     """Get the sliced output directory path."""
     return os.path.join(data_dir, SLICED_DIR)
+
+
+def get_merged_dir(data_dir: str) -> str:
+    """Get the merged video output directory path."""
+    return os.path.join(data_dir, MERGED_DIR)
+
+
+def get_cropandpan_dir(data_dir: str) -> str:
+    """Get the crop/pan output directory path."""
+    return os.path.join(data_dir, CROPANDPAN_DIR)
 
 
 def get_video_meta_path(data_dir: str) -> str:

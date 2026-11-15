@@ -21,7 +21,9 @@ Generate and maintain Thea documentation from code changes and chat history.
 
 ```
 docs/
-├── setup.md                    # Installation & environment setup
+├── setup.md                    # Sequenced Python project setup
+├── setup.gpu.md                # System tools and acceleration
+├── setup.local-llm-mcp.md      # Optional local AI and MCP setup
 ├── architecture.md             # (Generated) Component design & data flow
 ├── best-practices.md          # (Generated) Code patterns & standards
 ├── troubleshooting.md         # (Generated) Common issues & solutions

@@ -16,7 +16,7 @@
       "label": "Run All Tests",
       "type": "shell",
       "command": "pytest",
-      "args": ["tests", "-v", "--tb=short"],
+      "args": ["tests", "tools/tests", "-v", "--tb=short"],
       "problemMatcher": ["$pytest"],
       "group": "test"
     },
